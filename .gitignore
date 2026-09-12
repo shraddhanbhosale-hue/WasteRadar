@@ -1,0 +1,32 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Frontend build
+frontend/dist/
+
+# Python
+ai-service/venv/
+ai-service/.venv/
+__pycache__/
+*.py[cod]
+
+# Backend uploads
+backend/uploads/*
+
+# Editor / OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Dataset and test files
+waste-dataset/
+waste-dataset.zip
+waste.jpeg

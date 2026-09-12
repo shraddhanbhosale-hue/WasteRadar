@@ -3,10 +3,6 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { OAuth2Client } = require("google-auth-library");
 
-const googleClient = new OAuth2Client(
-  process.env.GOOGLE_CLIENT_ID
-);
-
 // CREATE JWT TOKEN
 const createToken = (user) => {
   return jwt.sign(
@@ -142,7 +138,7 @@ const loginUser = async (req, res) => {
   }
 };
 
-// GOOGLE LOGIN
+// GOOGLE LOGIN (FIXED: Dynamic OAuth Client & Safe Execution)
 const googleLogin = async (req, res) => {
   try {
     const { credential } = req.body;
@@ -153,9 +149,21 @@ const googleLogin = async (req, res) => {
       });
     }
 
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+
+    if (!clientId) {
+      console.error("GOOGLE_CLIENT_ID missing in process.env");
+      return res.status(500).json({
+        message: "Server configuration error: GOOGLE_CLIENT_ID missing",
+      });
+    }
+
+    // Dynamic instantiation to prevent cold-start process.env undefined issues
+    const googleClient = new OAuth2Client(clientId);
+
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: clientId,
     });
 
     const payload = ticket.getPayload();
@@ -180,9 +188,7 @@ const googleLogin = async (req, res) => {
       });
     }
 
-    let user = await User.findOne({
-      googleId,
-    });
+    let user = await User.findOne({ googleId });
 
     if (!user) {
       user = await User.findOne({
@@ -200,9 +206,7 @@ const googleLogin = async (req, res) => {
       }
 
       await user.save();
-    }
-
-    if (!user) {
+    } else {
       user = await User.create({
         name: name || "WasteRadar User",
         email: email.toLowerCase(),
@@ -216,7 +220,7 @@ const googleLogin = async (req, res) => {
 
     const token = createToken(user);
 
-    res.json({
+    return res.status(200).json({
       message: "Google login successful",
       token,
       user: {
@@ -229,13 +233,10 @@ const googleLogin = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(
-      "Google login error:",
-      error.message
-    );
+    console.error("Google login error:", error.message);
 
-    res.status(401).json({
-      message: "Google authentication failed",
+    return res.status(401).json({
+      message: error.message || "Google authentication failed",
     });
   }
 };

@@ -57,24 +57,24 @@ router.post("/", protect, async (req, res) => {
       });
     }
 
-    if (!villageId) {
-      return res.status(400).json({
-        message: "Village is required",
-      });
-    }
+    let validVillageId = null;
 
-    if (!mongoose.Types.ObjectId.isValid(villageId)) {
-      return res.status(400).json({
-        message: "Invalid village ID",
-      });
-    }
+    if (villageId) {
+      if (!mongoose.Types.ObjectId.isValid(villageId)) {
+        return res.status(400).json({
+          message: "Invalid village ID",
+        });
+      }
 
-    const village = await Village.findById(villageId);
+      const village = await Village.findById(villageId);
 
-    if (!village) {
-      return res.status(404).json({
-        message: "Village not found",
-      });
+      if (!village) {
+        return res.status(404).json({
+          message: "Village not found",
+        });
+      }
+
+      validVillageId = villageId;
     }
 
     const existingVehicle = await Vehicle.findOne({
@@ -115,33 +115,43 @@ router.post("/", protect, async (req, res) => {
       vehicleNumber: vehicleNumber.trim(),
       vehicleType: vehicleType ? vehicleType.trim() : "",
       capacity: numericCapacity,
-      villageId,
+
+      villageId: validVillageId,
+
       driverId: driverId || null,
-      depotAddress: depotAddress ? depotAddress.trim() : "",
+
+      depotAddress: depotAddress
+        ? depotAddress.trim()
+        : "",
+
       depotLatitude:
         depotLatitude !== undefined &&
         depotLatitude !== null &&
         depotLatitude !== ""
           ? Number(depotLatitude)
           : undefined,
+
       depotLongitude:
         depotLongitude !== undefined &&
         depotLongitude !== null &&
         depotLongitude !== ""
           ? Number(depotLongitude)
           : undefined,
+
       currentLatitude:
         currentLatitude !== undefined &&
         currentLatitude !== null &&
         currentLatitude !== ""
           ? Number(currentLatitude)
           : undefined,
+
       currentLongitude:
         currentLongitude !== undefined &&
         currentLongitude !== null &&
         currentLongitude !== ""
           ? Number(currentLongitude)
           : undefined,
+
       status: vehicleStatus,
     });
 
@@ -167,7 +177,9 @@ router.post("/", protect, async (req, res) => {
     if (error.name === "ValidationError") {
       return res.status(400).json({
         message: "Vehicle validation failed",
-        errors: Object.values(error.errors).map((err) => err.message),
+        errors: Object.values(error.errors).map(
+          (err) => err.message
+        ),
       });
     }
 
@@ -195,7 +207,9 @@ router.get("/", protect, async (req, res) => {
       .populate("driverId")
       .sort({ createdAt: -1 });
 
-    return res.json(vehicles);
+    return res.json({
+      vehicles,
+    });
   } catch (error) {
     console.error("Get vehicles error:", error);
 
@@ -235,7 +249,10 @@ router.get("/available", protect, async (req, res) => {
 
     return res.json(vehicles);
   } catch (error) {
-    console.error("Get available vehicles error:", error);
+    console.error(
+      "Get available vehicles error:",
+      error
+    );
 
     return res.status(500).json({
       message: "Unable to fetch available vehicles",
@@ -248,33 +265,40 @@ router.get("/available", protect, async (req, res) => {
   GET VEHICLES BY VILLAGE
   GET /api/vehicles/village/:villageId
 */
-router.get("/village/:villageId", protect, async (req, res) => {
-  try {
-    const { villageId } = req.params;
+router.get(
+  "/village/:villageId",
+  protect,
+  async (req, res) => {
+    try {
+      const { villageId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(villageId)) {
-      return res.status(400).json({
-        message: "Invalid village ID",
+      if (!mongoose.Types.ObjectId.isValid(villageId)) {
+        return res.status(400).json({
+          message: "Invalid village ID",
+        });
+      }
+
+      const vehicles = await Vehicle.find({
+        villageId,
+      })
+        .populate("villageId", "name district state")
+        .populate("driverId")
+        .sort({ vehicleNumber: 1 });
+
+      return res.json(vehicles);
+    } catch (error) {
+      console.error(
+        "Get village vehicles error:",
+        error
+      );
+
+      return res.status(500).json({
+        message: "Unable to fetch village vehicles",
+        error: error.message,
       });
     }
-
-    const vehicles = await Vehicle.find({
-      villageId,
-    })
-      .populate("villageId", "name district state")
-      .populate("driverId")
-      .sort({ vehicleNumber: 1 });
-
-    return res.json(vehicles);
-  } catch (error) {
-    console.error("Get village vehicles error:", error);
-
-    return res.status(500).json({
-      message: "Unable to fetch village vehicles",
-      error: error.message,
-    });
   }
-});
+);
 
 /*
   GET SINGLE VEHICLE
@@ -381,9 +405,13 @@ router.put("/:id", protect, async (req, res) => {
     if (capacity !== undefined) {
       const numericCapacity = Number(capacity);
 
-      if (Number.isNaN(numericCapacity) || numericCapacity <= 0) {
+      if (
+        Number.isNaN(numericCapacity) ||
+        numericCapacity <= 0
+      ) {
         return res.status(400).json({
-          message: "Capacity must be a valid positive number",
+          message:
+            "Capacity must be a valid positive number",
         });
       }
 
@@ -391,21 +419,25 @@ router.put("/:id", protect, async (req, res) => {
     }
 
     if (villageId !== undefined) {
-      if (!mongoose.Types.ObjectId.isValid(villageId)) {
-        return res.status(400).json({
-          message: "Invalid village ID",
-        });
+      if (villageId === null || villageId === "") {
+        vehicle.villageId = null;
+      } else {
+        if (!mongoose.Types.ObjectId.isValid(villageId)) {
+          return res.status(400).json({
+            message: "Invalid village ID",
+          });
+        }
+
+        const village = await Village.findById(villageId);
+
+        if (!village) {
+          return res.status(404).json({
+            message: "Village not found",
+          });
+        }
+
+        vehicle.villageId = villageId;
       }
-
-      const village = await Village.findById(villageId);
-
-      if (!village) {
-        return res.status(404).json({
-          message: "Village not found",
-        });
-      }
-
-      vehicle.villageId = villageId;
     }
 
     if (driverId !== undefined) {
@@ -428,28 +460,32 @@ router.put("/:id", protect, async (req, res) => {
 
     if (depotLatitude !== undefined) {
       vehicle.depotLatitude =
-        depotLatitude === "" || depotLatitude === null
+        depotLatitude === "" ||
+        depotLatitude === null
           ? undefined
           : Number(depotLatitude);
     }
 
     if (depotLongitude !== undefined) {
       vehicle.depotLongitude =
-        depotLongitude === "" || depotLongitude === null
+        depotLongitude === "" ||
+        depotLongitude === null
           ? undefined
           : Number(depotLongitude);
     }
 
     if (currentLatitude !== undefined) {
       vehicle.currentLatitude =
-        currentLatitude === "" || currentLatitude === null
+        currentLatitude === "" ||
+        currentLatitude === null
           ? undefined
           : Number(currentLatitude);
     }
 
     if (currentLongitude !== undefined) {
       vehicle.currentLongitude =
-        currentLongitude === "" || currentLongitude === null
+        currentLongitude === "" ||
+        currentLongitude === null
           ? undefined
           : Number(currentLongitude);
     }
@@ -474,7 +510,9 @@ router.put("/:id", protect, async (req, res) => {
 
     await vehicle.save();
 
-    const updatedVehicle = await Vehicle.findById(vehicle._id)
+    const updatedVehicle = await Vehicle.findById(
+      vehicle._id
+    )
       .populate("villageId", "name district state")
       .populate("driverId");
 
@@ -494,7 +532,9 @@ router.put("/:id", protect, async (req, res) => {
     if (error.name === "ValidationError") {
       return res.status(400).json({
         message: "Vehicle validation failed",
-        errors: Object.values(error.errors).map((err) => err.message),
+        errors: Object.values(error.errors).map(
+          (err) => err.message
+        ),
       });
     }
 

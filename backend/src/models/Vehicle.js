@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 const vehicleSchema = new mongoose.Schema(
@@ -22,7 +23,7 @@ const vehicleSchema = new mongoose.Schema(
     villageId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Village",
-      required: true,
+      default: null,
     },
 
     driverId: {
@@ -54,7 +55,13 @@ const vehicleSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["AVAILABLE", "ASSIGNED", "ON_ROUTE", "COLLECTING", "MAINTENANCE"],
+      enum: [
+        "AVAILABLE",
+        "ASSIGNED",
+        "ON_ROUTE",
+        "COLLECTING",
+        "MAINTENANCE",
+      ],
       default: "AVAILABLE",
     },
   },

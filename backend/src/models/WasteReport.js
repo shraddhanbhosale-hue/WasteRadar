@@ -19,6 +19,12 @@ const wasteReportSchema = new mongoose.Schema(
       required: true,
     },
 
+        driverId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Driver",
+      default: null,
+    },
+
     incidentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "WasteIncident",

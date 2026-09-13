@@ -5,7 +5,6 @@ const User = require("../models/User");
 const Vehicle = require("../models/Vehicle");
 const bcrypt = require("bcryptjs");
 
-
 const createDriver = async (req, res) => {
   try {
     const {
@@ -113,7 +112,7 @@ const createDriver = async (req, res) => {
       userId: user._id,
       name: name.trim(),
       phone: phone ? phone.trim() : "",
-      villageId: null,
+      villageId: vehicle.villageId || null,
       vehicleId: vehicle._id,
       status: driverStatus,
     });
@@ -300,10 +299,26 @@ const updateDriver = async (req, res) => {
 
       driver.vehicleId = newVehicle._id;
 
+      if (newVehicle.villageId) {
+        driver.villageId = newVehicle.villageId;
+      }
+
       await Vehicle.findByIdAndUpdate(newVehicle._id, {
         driverId: driver._id,
         status: "ASSIGNED",
       });
+
+      /*
+       * Important:
+       * Assigning a vehicle to a driver does NOT mean
+       * the driver is currently doing a task.
+       *
+       * Driver remains AVAILABLE until a report/task
+       * is actually assigned.
+       */
+      if (driver.status !== "ON_TASK") {
+        driver.status = "AVAILABLE";
+      }
     }
 
     if (status !== undefined) {

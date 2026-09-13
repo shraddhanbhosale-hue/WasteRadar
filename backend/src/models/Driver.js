@@ -22,7 +22,7 @@ const driverSchema = new mongoose.Schema(
     villageId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Village",
-      required: true,
+      default: null,
     },
 
     vehicleId: {

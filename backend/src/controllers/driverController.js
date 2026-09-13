@@ -1,6 +1,9 @@
+const mongoose = require("mongoose");
+
 const Driver = require("../models/Driver");
 const User = require("../models/User");
 const Vehicle = require("../models/Vehicle");
+const Village = require("../models/Village");
 
 // CREATE DRIVER
 const createDriver = async (req, res) => {
@@ -9,25 +12,23 @@ const createDriver = async (req, res) => {
       userId,
       name,
       phone,
+      villageId,
       vehicleId,
       status,
     } = req.body;
 
-    const villageId = req.user.villageId;
-
-    if (!villageId) {
-      return res.status(400).json({
-        message: "Admin is not assigned to a village",
-      });
-    }
-
-    if (!userId || !name) {
+    if (!userId || !name || !name.trim()) {
       return res.status(400).json({
         message: "userId and name are required",
       });
     }
 
-    // Check user
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        message: "Invalid user ID",
+      });
+    }
+
     const user = await User.findById(userId);
 
     if (!user) {
@@ -36,25 +37,48 @@ const createDriver = async (req, res) => {
       });
     }
 
-    // Check duplicate driver
     const existingDriver = await Driver.findOne({ userId });
 
     if (existingDriver) {
-      return res.status(400).json({
+      return res.status(409).json({
         message: "Driver already exists for this user",
       });
     }
 
-    // If vehicle provided, validate it
+    let validVillageId = null;
+
+    if (villageId) {
+      if (!mongoose.Types.ObjectId.isValid(villageId)) {
+        return res.status(400).json({
+          message: "Invalid village ID",
+        });
+      }
+
+      const village = await Village.findById(villageId);
+
+      if (!village) {
+        return res.status(404).json({
+          message: "Village not found",
+        });
+      }
+
+      validVillageId = villageId;
+    }
+
+    let validVehicleId = null;
+
     if (vehicleId) {
-      const vehicle = await Vehicle.findOne({
-        _id: vehicleId,
-        villageId,
-      });
+      if (!mongoose.Types.ObjectId.isValid(vehicleId)) {
+        return res.status(400).json({
+          message: "Invalid vehicle ID",
+        });
+      }
+
+      const vehicle = await Vehicle.findById(vehicleId);
 
       if (!vehicle) {
         return res.status(404).json({
-          message: "Vehicle not found in this village",
+          message: "Vehicle not found",
         });
       }
 
@@ -63,27 +87,54 @@ const createDriver = async (req, res) => {
           message: "Vehicle is not available",
         });
       }
+
+      if (vehicle.driverId) {
+        return res.status(400).json({
+          message: "Vehicle is already assigned to another driver",
+        });
+      }
+
+      validVehicleId = vehicleId;
+    }
+
+    const allowedStatuses = [
+      "AVAILABLE",
+      "ON_TASK",
+      "OFFLINE",
+    ];
+
+    const driverStatus = status || "OFFLINE";
+
+    if (!allowedStatuses.includes(driverStatus)) {
+      return res.status(400).json({
+        message: "Invalid driver status",
+      });
     }
 
     const driver = await Driver.create({
       userId,
-      name,
-      phone,
-      villageId,
-      vehicleId: vehicleId || null,
-      status: status || "OFFLINE",
+      name: name.trim(),
+      phone: phone ? phone.trim() : "",
+      villageId: validVillageId,
+      vehicleId: validVehicleId,
+      status: driverStatus,
     });
 
-    // Update user role and village
     user.role = "DRIVER";
-    user.villageId = villageId;
+
+    if (validVillageId) {
+      user.villageId = validVillageId;
+    }
+
     await user.save();
 
-    // Assign vehicle to driver
-    if (vehicleId) {
-      await Vehicle.findByIdAndUpdate(vehicleId, {
+    if (validVehicleId) {
+      await Vehicle.findByIdAndUpdate(validVehicleId, {
         driverId: driver._id,
-        status: "ASSIGNED",
+        status:
+          driverStatus === "AVAILABLE"
+            ? "AVAILABLE"
+            : "ASSIGNED",
       });
     }
 
@@ -95,15 +146,25 @@ const createDriver = async (req, res) => {
         "vehicleNumber vehicleType capacity status"
       );
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Driver created successfully",
       driver: populatedDriver,
     });
   } catch (error) {
-    console.error("Create driver error:", error.message);
+    console.error("Create driver error:", error);
 
-    res.status(500).json({
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        message: "Driver validation failed",
+        errors: Object.values(error.errors).map(
+          (err) => err.message
+        ),
+      });
+    }
+
+    return res.status(500).json({
       message: "Unable to create driver",
+      error: error.message,
     });
   }
 };
@@ -111,15 +172,7 @@ const createDriver = async (req, res) => {
 // GET ALL DRIVERS
 const getDrivers = async (req, res) => {
   try {
-    const villageId = req.user.villageId;
-
-    if (!villageId) {
-      return res.status(400).json({
-        message: "Admin is not assigned to a village",
-      });
-    }
-
-    const drivers = await Driver.find({ villageId })
+    const drivers = await Driver.find()
       .populate("userId", "name email phone role")
       .populate("villageId", "name district state")
       .populate(
@@ -128,15 +181,16 @@ const getDrivers = async (req, res) => {
       )
       .sort({ createdAt: -1 });
 
-    res.json({
+    return res.json({
       count: drivers.length,
       drivers,
     });
   } catch (error) {
-    console.error("Get drivers error:", error.message);
+    console.error("Get drivers error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Unable to load drivers",
+      error: error.message,
     });
   }
 };
@@ -145,18 +199,14 @@ const getDrivers = async (req, res) => {
 const getDriverById = async (req, res) => {
   try {
     const { id } = req.params;
-    const villageId = req.user.villageId;
 
-    if (!villageId) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
-        message: "Admin is not assigned to a village",
+        message: "Invalid driver ID",
       });
     }
 
-    const driver = await Driver.findOne({
-      _id: id,
-      villageId,
-    })
+    const driver = await Driver.findById(id)
       .populate("userId", "name email phone role")
       .populate("villageId", "name district state")
       .populate(
@@ -170,14 +220,15 @@ const getDriverById = async (req, res) => {
       });
     }
 
-    res.json({
+    return res.json({
       driver,
     });
   } catch (error) {
-    console.error("Get driver error:", error.message);
+    console.error("Get driver error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Unable to load driver",
+      error: error.message,
     });
   }
 };
@@ -187,25 +238,21 @@ const updateDriver = async (req, res) => {
   try {
     const { id } = req.params;
 
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid driver ID",
+      });
+    }
+
     const {
       name,
       phone,
+      villageId,
       vehicleId,
       status,
     } = req.body;
 
-    const villageId = req.user.villageId;
-
-    if (!villageId) {
-      return res.status(400).json({
-        message: "Admin is not assigned to a village",
-      });
-    }
-
-    const driver = await Driver.findOne({
-      _id: id,
-      villageId,
-    });
+    const driver = await Driver.findById(id);
 
     if (!driver) {
       return res.status(404).json({
@@ -213,69 +260,136 @@ const updateDriver = async (req, res) => {
       });
     }
 
-    // Vehicle change
-    if (vehicleId !== undefined) {
-      if (vehicleId) {
-        const vehicle = await Vehicle.findOne({
-          _id: vehicleId,
-          villageId,
+    if (name !== undefined) {
+      if (!name.trim()) {
+        return res.status(400).json({
+          message: "Driver name is required",
         });
+      }
 
-        if (!vehicle) {
-          return res.status(404).json({
-            message: "Vehicle not found in this village",
-          });
-        }
+      driver.name = name.trim();
+    }
 
-        if (
-          vehicle.status !== "AVAILABLE" &&
-          vehicle._id.toString() !== driver.vehicleId?.toString()
-        ) {
-          return res.status(400).json({
-            message: "Vehicle is not available",
-          });
-        }
+    if (phone !== undefined) {
+      driver.phone = phone.trim();
+    }
 
-        // Release old vehicle
-        if (
-          driver.vehicleId &&
-          driver.vehicleId.toString() !== vehicle._id.toString()
-        ) {
-          await Vehicle.findByIdAndUpdate(driver.vehicleId, {
-            driverId: null,
-            status: "AVAILABLE",
-          });
-        }
-
-        // Assign new vehicle
-        vehicle.driverId = driver._id;
-        vehicle.status = "ASSIGNED";
-        await vehicle.save();
-
-        driver.vehicleId = vehicle._id;
+    if (villageId !== undefined) {
+      if (villageId === null || villageId === "") {
+        driver.villageId = null;
       } else {
-        // Remove vehicle
-        if (driver.vehicleId) {
-          await Vehicle.findByIdAndUpdate(driver.vehicleId, {
+        if (!mongoose.Types.ObjectId.isValid(villageId)) {
+          return res.status(400).json({
+            message: "Invalid village ID",
+          });
+        }
+
+        const village = await Village.findById(villageId);
+
+        if (!village) {
+          return res.status(404).json({
+            message: "Village not found",
+          });
+        }
+
+        driver.villageId = villageId;
+      }
+    }
+
+    if (vehicleId !== undefined) {
+      const oldVehicleId = driver.vehicleId;
+
+      if (vehicleId === null || vehicleId === "") {
+        if (oldVehicleId) {
+          await Vehicle.findByIdAndUpdate(oldVehicleId, {
             driverId: null,
             status: "AVAILABLE",
           });
         }
 
         driver.vehicleId = null;
+      } else {
+        if (!mongoose.Types.ObjectId.isValid(vehicleId)) {
+          return res.status(400).json({
+            message: "Invalid vehicle ID",
+          });
+        }
+
+        const vehicle = await Vehicle.findById(vehicleId);
+
+        if (!vehicle) {
+          return res.status(404).json({
+            message: "Vehicle not found",
+          });
+        }
+
+        if (
+          vehicle.driverId &&
+          vehicle.driverId.toString() !==
+            driver._id.toString()
+        ) {
+          return res.status(400).json({
+            message:
+              "Vehicle is already assigned to another driver",
+          });
+        }
+
+        if (
+          vehicle.status !== "AVAILABLE" &&
+          vehicle.driverId?.toString() !==
+            driver._id.toString()
+        ) {
+          return res.status(400).json({
+            message: "Vehicle is not available",
+          });
+        }
+
+        if (
+          oldVehicleId &&
+          oldVehicleId.toString() !==
+            vehicle._id.toString()
+        ) {
+          await Vehicle.findByIdAndUpdate(oldVehicleId, {
+            driverId: null,
+            status: "AVAILABLE",
+          });
+        }
+
+        driver.vehicleId = vehicle._id;
+
+        await Vehicle.findByIdAndUpdate(vehicle._id, {
+          driverId: driver._id,
+          status: "ASSIGNED",
+        });
       }
     }
 
-    if (name !== undefined) {
-      driver.name = name;
-    }
-
-    if (phone !== undefined) {
-      driver.phone = phone;
-    }
-
     if (status !== undefined) {
+      const allowedStatuses = [
+        "AVAILABLE",
+        "ON_TASK",
+        "OFFLINE",
+      ];
+
+      if (!allowedStatuses.includes(status)) {
+        return res.status(400).json({
+          message: "Invalid driver status",
+        });
+      }
+
       driver.status = status;
+
+      if (driver.vehicleId) {
+        await Vehicle.findByIdAndUpdate(
+          driver.vehicleId,
+          {
+            status:
+              status === "ON_TASK"
+                ? "ASSIGNED"
+                : "AVAILABLE",
+          }
+        );
+      }
     }
 
     await driver.save();
@@ -288,15 +402,16 @@ const updateDriver = async (req, res) => {
         "vehicleNumber vehicleType capacity status"
       );
 
-    res.json({
+    return res.json({
       message: "Driver updated successfully",
       driver: updatedDriver,
     });
   } catch (error) {
-    console.error("Update driver error:", error.message);
+    console.error("Update driver error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Unable to update driver",
+      error: error.message,
     });
   }
 };
@@ -305,18 +420,14 @@ const updateDriver = async (req, res) => {
 const deleteDriver = async (req, res) => {
   try {
     const { id } = req.params;
-    const villageId = req.user.villageId;
 
-    if (!villageId) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
-        message: "Admin is not assigned to a village",
+        message: "Invalid driver ID",
       });
     }
 
-    const driver = await Driver.findOne({
-      _id: id,
-      villageId,
-    });
+    const driver = await Driver.findById(id);
 
     if (!driver) {
       return res.status(404).json({
@@ -324,7 +435,6 @@ const deleteDriver = async (req, res) => {
       });
     }
 
-    // Release assigned vehicle
     if (driver.vehicleId) {
       await Vehicle.findByIdAndUpdate(driver.vehicleId, {
         driverId: null,
@@ -332,21 +442,21 @@ const deleteDriver = async (req, res) => {
       });
     }
 
-    // Change user role back to citizen
     await User.findByIdAndUpdate(driver.userId, {
       role: "CITIZEN",
     });
 
     await driver.deleteOne();
 
-    res.json({
+    return res.json({
       message: "Driver deleted successfully",
     });
   } catch (error) {
-    console.error("Delete driver error:", error.message);
+    console.error("Delete driver error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Unable to delete driver",
+      error: error.message,
     });
   }
 };

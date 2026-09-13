@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import {
   ArrowLeft,
   Plus,
@@ -12,7 +11,7 @@ import {
   User,
 } from "lucide-react";
 
-const API_URL = "http://localhost:5000/api";
+import api from "../services/api";
 
 const AdminVehicles = () => {
   const navigate = useNavigate();
@@ -32,22 +31,11 @@ const AdminVehicles = () => {
     status: "AVAILABLE",
   });
 
-  const getToken = () => {
-    return localStorage.getItem("wasteradar_token");
-  };
-
   const loadVehicles = async () => {
     try {
       setLoading(true);
 
-      const response = await axios.get(
-        `${API_URL}/vehicles`,
-        {
-          headers: {
-            Authorization: `Bearer ${getToken()}`,
-          },
-        }
-      );
+      const response = await api.get("/vehicles");
 
       setVehicles(response.data.vehicles || []);
     } catch (error) {
@@ -92,10 +80,6 @@ const AdminVehicles = () => {
     e.preventDefault();
 
     try {
-      const headers = {
-        Authorization: `Bearer ${getToken()}`,
-      };
-
       const vehicleData = {
         vehicleNumber: formData.vehicleNumber,
         vehicleType: formData.vehicleType,
@@ -111,23 +95,14 @@ const AdminVehicles = () => {
       };
 
       if (editingVehicle) {
-        await axios.put(
-          `${API_URL}/vehicles/${editingVehicle._id}`,
-          vehicleData,
-          {
-            headers,
-          }
+        await api.put(
+          `/vehicles/${editingVehicle._id}`,
+          vehicleData
         );
 
         alert("Vehicle updated successfully");
       } else {
-        await axios.post(
-          `${API_URL}/vehicles`,
-          vehicleData,
-          {
-            headers,
-          }
-        );
+        await api.post("/vehicles", vehicleData);
 
         alert("Vehicle created successfully");
       }
@@ -171,14 +146,7 @@ const AdminVehicles = () => {
     if (!confirmed) return;
 
     try {
-      await axios.delete(
-        `${API_URL}/vehicles/${vehicle._id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${getToken()}`,
-          },
-        }
-      );
+      await api.delete(`/vehicles/${vehicle._id}`);
 
       alert("Vehicle deleted successfully");
 

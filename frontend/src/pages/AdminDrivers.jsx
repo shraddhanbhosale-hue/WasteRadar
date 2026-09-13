@@ -18,15 +18,15 @@ function AdminDrivers() {
   const navigate = useNavigate();
 
   const [drivers, setDrivers] = useState([]);
-  const [users, setUsers] = useState([]);
   const [vehicles, setVehicles] = useState([]);
 
   const [showForm, setShowForm] = useState(false);
   const [editingDriver, setEditingDriver] = useState(null);
 
   const [formData, setFormData] = useState({
-    userId: "",
     name: "",
+    email: "",
+    password: "",
     phone: "",
     vehicleId: "",
     status: "AVAILABLE",
@@ -48,11 +48,8 @@ function AdminDrivers() {
       setLoading(true);
       setError("");
 
-      const [driversRes, usersRes, vehiclesRes] = await Promise.all([
+      const [driversRes, vehiclesRes] = await Promise.all([
         fetch(`${API_URL}/drivers`, {
-          headers,
-        }),
-        fetch(`${API_URL}/auth/users`, {
           headers,
         }),
         fetch(`${API_URL}/vehicles`, {
@@ -61,18 +58,11 @@ function AdminDrivers() {
       ]);
 
       const driversData = await driversRes.json();
-      const usersData = await usersRes.json();
       const vehiclesData = await vehiclesRes.json();
 
       if (!driversRes.ok) {
         throw new Error(
           driversData.message || "Unable to load drivers"
-        );
-      }
-
-      if (!usersRes.ok) {
-        throw new Error(
-          usersData.message || "Unable to load users"
         );
       }
 
@@ -83,15 +73,13 @@ function AdminDrivers() {
       }
 
       setDrivers(driversData.drivers || []);
-
-      const citizenUsers = (usersData.users || []).filter(
-        (user) => user.role === "CITIZEN"
-      );
-
-      setUsers(citizenUsers);
       setVehicles(vehiclesData.vehicles || []);
     } catch (err) {
-      console.error("Load driver management data error:", err);
+      console.error(
+        "Load driver management data error:",
+        err
+      );
+
       setError(err.message);
     } finally {
       setLoading(false);
@@ -104,8 +92,9 @@ function AdminDrivers() {
 
   const resetForm = () => {
     setFormData({
-      userId: "",
       name: "",
+      email: "",
+      password: "",
       phone: "",
       vehicleId: "",
       status: "AVAILABLE",
@@ -116,19 +105,6 @@ function AdminDrivers() {
     setError("");
   };
 
-  const handleUserChange = (userId) => {
-    const selectedUser = users.find(
-      (user) => user._id === userId
-    );
-
-    setFormData((prev) => ({
-      ...prev,
-      userId,
-      name: selectedUser?.name || "",
-      phone: selectedUser?.phone || "",
-    }));
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -136,20 +112,37 @@ function AdminDrivers() {
       setSaving(true);
       setError("");
 
-      if (!editingDriver && !formData.userId) {
-        throw new Error("Please select a citizen user");
-      }
-
       if (!formData.name.trim()) {
         throw new Error("Driver name is required");
       }
 
+      if (!editingDriver && !formData.email.trim()) {
+        throw new Error("Driver email is required");
+      }
+
+      if (!editingDriver && !formData.password) {
+        throw new Error("Driver password is required");
+      }
+
+      if (
+        !editingDriver &&
+        formData.password.length < 6
+      ) {
+        throw new Error(
+          "Driver password must be at least 6 characters"
+        );
+      }
+
       if (!formData.vehicleId) {
-        throw new Error("Please assign a vehicle to the driver");
+        throw new Error(
+          "Please assign a vehicle to the driver"
+        );
       }
 
       const payload = {
         name: formData.name.trim(),
+        email: formData.email.trim(),
+        password: formData.password,
         phone: formData.phone.trim(),
         vehicleId: formData.vehicleId,
         status: formData.status,
@@ -167,8 +160,6 @@ function AdminDrivers() {
           }
         );
       } else {
-        payload.userId = formData.userId;
-
         response = await fetch(`${API_URL}/drivers`, {
           method: "POST",
           headers,
@@ -198,9 +189,13 @@ function AdminDrivers() {
     setEditingDriver(driver);
 
     setFormData({
-      userId: driver.userId?._id || "",
       name: driver.name || "",
-      phone: driver.phone || driver.userId?.phone || "",
+      email: driver.userId?.email || "",
+      password: "",
+      phone:
+        driver.phone ||
+        driver.userId?.phone ||
+        "",
       vehicleId: driver.vehicleId?._id || "",
       status: driver.status || "AVAILABLE",
     });
@@ -374,7 +369,9 @@ function AdminDrivers() {
           <div className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-xl font-bold text-slate-900">
-                {editingDriver ? "Edit Driver" : "Add New Driver"}
+                {editingDriver
+                  ? "Edit Driver"
+                  : "Add New Driver"}
               </h2>
 
               <button
@@ -389,49 +386,6 @@ function AdminDrivers() {
               onSubmit={handleSubmit}
               className="grid gap-5 md:grid-cols-2"
             >
-              {!editingDriver && (
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Citizen User
-                  </label>
-
-                  <select
-                    value={formData.userId}
-                    onChange={(e) =>
-                      handleUserChange(e.target.value)
-                    }
-                    required
-                    className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
-                  >
-                    <option value="">
-                      Select citizen
-                    </option>
-
-                    {users.length === 0 ? (
-                      <option value="" disabled>
-                        No citizen users available
-                      </option>
-                    ) : (
-                      users.map((user) => (
-                        <option
-                          key={user._id}
-                          value={user._id}
-                        >
-                          {user.name} — {user.email}
-                        </option>
-                      ))
-                    )}
-                  </select>
-
-                  {users.length === 0 && (
-                    <p className="mt-2 text-xs text-red-500">
-                      No CITIZEN users found. Register a citizen
-                      account first.
-                    </p>
-                  )}
-                </div>
-              )}
-
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
                   Driver Name
@@ -449,6 +403,53 @@ function AdminDrivers() {
                   required
                   className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
                   placeholder="Driver name"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Email
+                </label>
+
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      email: e.target.value,
+                    }))
+                  }
+                  required={!editingDriver}
+                  disabled={!!editingDriver}
+                  className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500 disabled:bg-slate-100"
+                  placeholder="driver@example.com"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  {editingDriver
+                    ? "New Password (optional)"
+                    : "Password"}
+                </label>
+
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      password: e.target.value,
+                    }))
+                  }
+                  required={!editingDriver}
+                  className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
+                  placeholder={
+                    editingDriver
+                      ? "Leave blank to keep current password"
+                      : "Minimum 6 characters"
+                  }
                 />
               </div>
 
@@ -546,7 +547,6 @@ function AdminDrivers() {
                   type="submit"
                   disabled={
                     saving ||
-                    (!editingDriver && users.length === 0) ||
                     availableVehicles.length === 0
                   }
                   className="rounded-lg bg-emerald-600 px-6 py-3 font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -669,7 +669,9 @@ function AdminDrivers() {
                       <td className="px-6 py-4">
                         <div className="flex justify-end gap-2">
                           <button
-                            onClick={() => handleEdit(driver)}
+                            onClick={() =>
+                              handleEdit(driver)
+                            }
                             className="rounded-lg border border-slate-200 p-2 text-blue-600 hover:bg-blue-50"
                             title="Edit driver"
                           >

@@ -1,22 +1,40 @@
 const mongoose = require("mongoose");
 
 const Driver = require("../models/Driver");
-const User = require("../models/User");
-const Vehicle = require("../models/Vehicle");
+const bcrypt = require("bcryptjs");
 
 const createDriver = async (req, res) => {
   try {
     const {
-      userId,
       name,
+      email,
+      password,
       phone,
       vehicleId,
       status,
     } = req.body;
 
-    if (!userId || !name || !name.trim()) {
+    if (!name || !name.trim()) {
       return res.status(400).json({
-        message: "userId and name are required",
+        message: "Driver name is required",
+      });
+    }
+
+    if (!email || !email.trim()) {
+      return res.status(400).json({
+        message: "Driver email is required",
+      });
+    }
+
+    if (!password) {
+      return res.status(400).json({
+        message: "Driver password is required",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters",
       });
     }
 
@@ -26,39 +44,21 @@ const createDriver = async (req, res) => {
       });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({
-        message: "Invalid user ID",
-      });
-    }
-
     if (!mongoose.Types.ObjectId.isValid(vehicleId)) {
       return res.status(400).json({
         message: "Invalid vehicle ID",
       });
     }
 
-    const user = await User.findById(userId);
+    const normalizedEmail = email.trim().toLowerCase();
 
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
-    }
-
-    if (user.role !== "CITIZEN") {
-      return res.status(400).json({
-        message: "Only CITIZEN users can be converted to drivers",
-      });
-    }
-
-    const existingDriver = await Driver.findOne({
-      userId,
+    const existingUser = await User.findOne({
+      email: normalizedEmail,
     });
 
-    if (existingDriver) {
+    if (existingUser) {
       return res.status(409).json({
-        message: "Driver already exists for this user",
+        message: "A user with this email already exists",
       });
     }
 
@@ -96,17 +96,24 @@ const createDriver = async (req, res) => {
       });
     }
 
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      password: hashedPassword,
+      phone: phone ? phone.trim() : "",
+      role: "DRIVER",
+    });
+
     const driver = await Driver.create({
-      userId,
+      userId: user._id,
       name: name.trim(),
       phone: phone ? phone.trim() : "",
       villageId: null,
       vehicleId: vehicle._id,
       status: driverStatus,
     });
-
-    user.role = "DRIVER";
-    await user.save();
 
     await Vehicle.findByIdAndUpdate(vehicle._id, {
       driverId: driver._id,
@@ -121,20 +128,11 @@ const createDriver = async (req, res) => {
       );
 
     return res.status(201).json({
-      message: "Driver created and vehicle assigned successfully",
+      message: "Driver account created successfully",
       driver: populatedDriver,
     });
   } catch (error) {
     console.error("Create driver error:", error);
-
-    if (error.name === "ValidationError") {
-      return res.status(400).json({
-        message: "Driver validation failed",
-        errors: Object.values(error.errors).map(
-          (err) => err.message
-        ),
-      });
-    }
 
     return res.status(500).json({
       message: "Unable to create driver",

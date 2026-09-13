@@ -120,9 +120,7 @@ router.post("/", protect, async (req, res) => {
 
       driverId: driverId || null,
 
-      depotAddress: depotAddress
-        ? depotAddress.trim()
-        : "",
+      depotAddress: depotAddress ? depotAddress.trim() : "",
 
       depotLatitude:
         depotLatitude !== undefined &&
@@ -223,13 +221,23 @@ router.get("/", protect, async (req, res) => {
 /*
   GET AVAILABLE VEHICLES
   GET /api/vehicles/available
+
+  A vehicle is available for report assignment when:
+  1. Vehicle status is AVAILABLE
+     OR
+  2. Vehicle status is ASSIGNED and its driver is AVAILABLE
+
+  ASSIGNED means the vehicle is assigned to a driver.
+  It does NOT mean that the vehicle is busy with a waste collection task.
 */
 router.get("/available", protect, async (req, res) => {
   try {
     const { villageId } = req.query;
 
     const filter = {
-      status: "AVAILABLE",
+      status: {
+        $in: ["AVAILABLE", "ASSIGNED"],
+      },
     };
 
     if (villageId) {
@@ -244,10 +252,20 @@ router.get("/available", protect, async (req, res) => {
 
     const vehicles = await Vehicle.find(filter)
       .populate("villageId", "name district state")
-      .populate("driverId")
+      .populate(
+        "driverId",
+        "name email phone role status villageId"
+      )
       .sort({ vehicleNumber: 1 });
 
-    return res.json(vehicles);
+    const availableVehicles = vehicles.filter((vehicle) => {
+      return (
+        vehicle.driverId &&
+        vehicle.driverId.status === "AVAILABLE"
+      );
+    });
+
+    return res.json(availableVehicles);
   } catch (error) {
     console.error(
       "Get available vehicles error:",
@@ -410,8 +428,7 @@ router.put("/:id", protect, async (req, res) => {
         numericCapacity <= 0
       ) {
         return res.status(400).json({
-          message:
-            "Capacity must be a valid positive number",
+          message: "Capacity must be a valid positive number",
         });
       }
 

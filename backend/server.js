@@ -1,6 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const driverRoutes = require("./src/routes/driverRoutes");
 require("dotenv").config();
 
 // ==========================================
@@ -15,6 +16,7 @@ const driverTaskRoutes = require("./src/routes/driverTaskRoutes");
 const vehicleRoutes = require("./src/routes/vehicleRoutes");
 const aiRoutes = require("./src/routes/aiRoutes");
 const villageRoutes = require("./src/routes/villageRoutes");
+const driverManagementRoutes = require("./src/routes/driverManagementRoutes");
 
 // ==========================================
 // MIDDLEWARE
@@ -65,7 +67,7 @@ app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/villages", villageRoutes);
 
 // Driver Management
-app.use("/api/drivers", driverRoutes);
+app.use("/api/drivers", driverManagementRoutes);
 
 // Driver Tasks
 app.use("/api/driver", driverTaskRoutes);

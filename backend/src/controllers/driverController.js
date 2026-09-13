@@ -37,7 +37,15 @@ const createDriver = async (req, res) => {
       });
     }
 
-    const existingDriver = await Driver.findOne({ userId });
+    if (user.role !== "CITIZEN") {
+      return res.status(400).json({
+        message: "Only CITIZEN users can be converted to drivers",
+      });
+    }
+
+    const existingDriver = await Driver.findOne({
+      userId,
+    });
 
     if (existingDriver) {
       return res.status(409).json({
@@ -131,10 +139,7 @@ const createDriver = async (req, res) => {
     if (validVehicleId) {
       await Vehicle.findByIdAndUpdate(validVehicleId, {
         driverId: driver._id,
-        status:
-          driverStatus === "AVAILABLE"
-            ? "AVAILABLE"
-            : "ASSIGNED",
+        status: "ASSIGNED",
       });
     }
 
@@ -378,18 +383,6 @@ const updateDriver = async (req, res) => {
       }
 
       driver.status = status;
-
-      if (driver.vehicleId) {
-        await Vehicle.findByIdAndUpdate(
-          driver.vehicleId,
-          {
-            status:
-              status === "ON_TASK"
-                ? "ASSIGNED"
-                : "AVAILABLE",
-          }
-        );
-      }
     }
 
     await driver.save();

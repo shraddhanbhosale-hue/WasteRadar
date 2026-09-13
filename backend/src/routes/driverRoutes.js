@@ -4,27 +4,21 @@ const protect = require("../middleware/authMiddleware");
 const allowRoles = require("../middleware/roleMiddleware");
 
 const {
-  createDriver,
-  getDrivers,
-  getDriverById,
-  updateDriver,
-  deleteDriver,
-} = require("../controllers/driverController");
+  getDriverTasks,
+  startTask,
+  completeTask,
+} = require("../controllers/driverTaskController");
 
 const router = express.Router();
 
 router.use(protect);
 
-router.use(allowRoles("ADMIN"));
+router.use(allowRoles("DRIVER"));
 
-router.post("/", createDriver);
+router.get("/tasks", getDriverTasks);
 
-router.get("/", getDrivers);
+router.put("/tasks/:id/start", startTask);
 
-router.get("/:id", getDriverById);
-
-router.put("/:id", updateDriver);
-
-router.delete("/:id", deleteDriver);
+router.put("/tasks/:id/complete", completeTask);
 
 module.exports = router;

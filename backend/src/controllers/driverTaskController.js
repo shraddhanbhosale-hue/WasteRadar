@@ -9,7 +9,6 @@ const getDriverTasks = async (req, res) => {
   try {
     const driver = await Driver.findOne({
       userId: req.user.userId,
-      villageId: req.user.villageId,
     });
 
     if (!driver) {
@@ -18,7 +17,14 @@ const getDriverTasks = async (req, res) => {
       });
     }
 
+    if (!driver.villageId) {
+      return res.status(400).json({
+        message: "Driver village is not assigned",
+      });
+    }
+
     const reports = await WasteReport.find({
+      driverId: driver._id,
       villageId: driver.villageId,
       status: {
         $in: ["VEHICLE_ASSIGNED", "IN_PROGRESS"],
@@ -26,6 +32,10 @@ const getDriverTasks = async (req, res) => {
     })
       .populate("userId", "name email phone")
       .populate("villageId", "name district state")
+      .populate(
+        "vehicleId",
+        "vehicleNumber vehicleType capacity status"
+      )
       .sort({ createdAt: -1 });
 
     res.json({
@@ -50,12 +60,17 @@ const startTask = async (req, res) => {
 
     const driver = await Driver.findOne({
       userId: req.user.userId,
-      villageId: req.user.villageId,
     });
 
     if (!driver) {
       return res.status(404).json({
         message: "Driver profile not found",
+      });
+    }
+
+    if (!driver.villageId) {
+      return res.status(400).json({
+        message: "Driver village is not assigned",
       });
     }
 
@@ -67,25 +82,23 @@ const startTask = async (req, res) => {
 
     const report = await WasteReport.findOne({
       _id: id,
+      driverId: driver._id,
       villageId: driver.villageId,
       status: "VEHICLE_ASSIGNED",
     });
 
     if (!report) {
       return res.status(404).json({
-        message: "Assigned task not found",
+        message: "Assigned task not found for this driver",
       });
     }
 
-    // Change report status
     report.status = "IN_PROGRESS";
     await report.save();
 
-    // Change driver status
     driver.status = "ON_TASK";
     await driver.save();
 
-    // Change vehicle status
     await Vehicle.findByIdAndUpdate(driver.vehicleId, {
       status: "ON_ROUTE",
     });
@@ -112,7 +125,6 @@ const completeTask = async (req, res) => {
 
     const driver = await Driver.findOne({
       userId: req.user.userId,
-      villageId: req.user.villageId,
     });
 
     if (!driver) {
@@ -121,31 +133,34 @@ const completeTask = async (req, res) => {
       });
     }
 
+    if (!driver.villageId) {
+      return res.status(400).json({
+        message: "Driver village is not assigned",
+      });
+    }
+
     const report = await WasteReport.findOne({
       _id: id,
+      driverId: driver._id,
       villageId: driver.villageId,
       status: "IN_PROGRESS",
     });
 
     if (!report) {
       return res.status(404).json({
-        message: "Active task not found",
+        message: "Active task not found for this driver",
       });
     }
 
-    // Save vehicle ID before removing it from driver
     const vehicleId = driver.vehicleId;
 
-    // Change report status
     report.status = "RESOLVED";
     await report.save();
 
-    // Make driver available
     driver.status = "AVAILABLE";
     driver.vehicleId = null;
     await driver.save();
 
-    // Make vehicle available
     if (vehicleId) {
       await Vehicle.findByIdAndUpdate(vehicleId, {
         driverId: null,
@@ -166,9 +181,6 @@ const completeTask = async (req, res) => {
   }
 };
 
-// ==========================================
-// EXPORT CONTROLLERS
-// ==========================================
 module.exports = {
   getDriverTasks,
   startTask,

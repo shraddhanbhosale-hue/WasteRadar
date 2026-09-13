@@ -32,12 +32,12 @@ function Login() {
       return;
     }
 
-    const userRole = user?.role ? String(user.role).toUpperCase() : "CITIZEN";
+    const userRole = user?.role
+      ? String(user.role).toUpperCase()
+      : "CITIZEN";
 
     if (userRole === "ADMIN") {
       navigate("/admin");
-    } else if (userRole === "DRIVER") {
-      navigate("/driver");
     } else {
       navigate("/citizen");
     }
@@ -56,7 +56,9 @@ function Login() {
       const user = result.data?.user;
 
       if (!token || !user) {
-        throw new Error("Invalid response received from authentication server.");
+        throw new Error(
+          "Invalid response received from authentication server."
+        );
       }
 
       login(token, user);
@@ -103,17 +105,19 @@ function Login() {
 
       googleButtonRef.current.innerHTML = "";
 
-      // Mobile screen sathi google button dynamic width
       const btnWidth = window.innerWidth < 400 ? 280 : 350;
 
-      window.google.accounts.id.renderButton(googleButtonRef.current, {
-        theme: "outline",
-        size: "large",
-        width: btnWidth,
-        text: "continue_with",
-        shape: "rectangular",
-        logo_alignment: "left",
-      });
+      window.google.accounts.id.renderButton(
+        googleButtonRef.current,
+        {
+          theme: "outline",
+          size: "large",
+          width: btnWidth,
+          text: "continue_with",
+          shape: "rectangular",
+          logo_alignment: "left",
+        }
+      );
     };
 
     if (window.google) {
@@ -169,9 +173,6 @@ function Login() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      {/* =========================
-          LEFT SECTION (Laptop View Same Rahnar)
-      ========================== */}
       <div className="hidden lg:flex lg:w-1/2 bg-green-700 relative overflow-hidden text-white">
         <div className="absolute inset-0 bg-gradient-to-br from-green-800 via-green-700 to-emerald-600" />
         <div className="absolute -top-24 -left-24 w-72 h-72 bg-white/10 rounded-full" />
@@ -182,9 +183,15 @@ function Login() {
             <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center">
               <Recycle size={28} />
             </div>
+
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">WasteRadar</h1>
-              <p className="text-green-100 text-sm">Smart Waste Management</p>
+              <h1 className="text-2xl font-bold tracking-tight">
+                WasteRadar
+              </h1>
+
+              <p className="text-green-100 text-sm">
+                Smart Waste Management
+              </p>
             </div>
           </div>
 
@@ -193,7 +200,9 @@ function Login() {
             <br />
             Report It.
             <br />
-            <span className="text-green-200">Get It Cleaned.</span>
+            <span className="text-green-200">
+              Get It Cleaned.
+            </span>
           </h2>
 
           <p className="mt-6 text-lg text-green-100 max-w-lg leading-relaxed">
@@ -206,8 +215,12 @@ function Login() {
               <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
                 <MapPin size={20} />
               </div>
+
               <div>
-                <p className="font-semibold">Location-based Reporting</p>
+                <p className="font-semibold">
+                  Location-based Reporting
+                </p>
+
                 <p className="text-sm text-green-100">
                   Report waste exactly where it is found.
                 </p>
@@ -218,8 +231,12 @@ function Login() {
               <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
                 <ShieldCheck size={20} />
               </div>
+
               <div>
-                <p className="font-semibold">AI-Powered Verification</p>
+                <p className="font-semibold">
+                  AI-Powered Verification
+                </p>
+
                 <p className="text-sm text-green-100">
                   Automatically analyze uploaded waste images.
                 </p>
@@ -229,25 +246,27 @@ function Login() {
         </div>
       </div>
 
-      {/* =========================
-          RIGHT SECTION (Mobile Optimized Padding)
-      ========================== */}
       <div className="w-full lg:w-1/2 flex items-center justify-center px-4 sm:px-6 py-6 sm:py-12">
         <div className="w-full max-w-md">
           <div className="lg:hidden flex items-center justify-center gap-3 mb-6 sm:mb-10">
             <div className="w-11 h-11 rounded-xl bg-green-700 text-white flex items-center justify-center">
               <Recycle size={25} />
             </div>
-            <h1 className="text-2xl font-bold text-slate-800">WasteRadar</h1>
+
+            <h1 className="text-2xl font-bold text-slate-800">
+              WasteRadar
+            </h1>
           </div>
 
           <div className="mb-6 sm:mb-8 text-center sm:text-left">
             <p className="text-xs sm:text-sm font-semibold text-green-700 mb-1 sm:mb-2">
               WELCOME BACK
             </p>
+
             <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
               Sign in to WasteRadar
             </h2>
+
             <p className="mt-1 sm:mt-2 text-sm text-slate-500">
               Access your waste management dashboard.
             </p>
@@ -268,7 +287,10 @@ function Login() {
 
               {googleLoading && (
                 <div className="mt-3 flex items-center justify-center gap-2 text-sm text-slate-500">
-                  <Loader2 size={16} className="animate-spin" />
+                  <Loader2
+                    size={16}
+                    className="animate-spin"
+                  />
                   Signing in with Google...
                 </div>
               )}
@@ -276,17 +298,23 @@ function Login() {
 
             <div className="flex items-center gap-4 mb-6">
               <div className="h-px bg-slate-200 flex-1" />
+
               <span className="text-xs font-medium text-slate-400 uppercase">
                 Or continue with email
               </span>
+
               <div className="h-px bg-slate-200 flex-1" />
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-4 sm:space-y-6">
+            <form
+              onSubmit={handleLogin}
+              className="space-y-4 sm:space-y-6"
+            >
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Email address
                 </label>
+
                 <input
                   type="email"
                   value={email}
@@ -302,6 +330,7 @@ function Login() {
                   <label className="block text-sm font-semibold text-slate-700">
                     Password
                   </label>
+
                   <button
                     type="button"
                     className="text-sm font-medium text-green-700 hover:text-green-800"
@@ -314,17 +343,26 @@ function Login() {
                   <input
                     type={showPassword ? "text" : "password"}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) =>
+                      setPassword(e.target.value)
+                    }
                     placeholder="Enter your password"
                     required
                     className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-200 outline-none transition focus:border-green-600 focus:ring-4 focus:ring-green-100"
                   />
+
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() =>
+                      setShowPassword(!showPassword)
+                    }
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                   >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    {showPassword ? (
+                      <EyeOff size={20} />
+                    ) : (
+                      <Eye size={20} />
+                    )}
                   </button>
                 </div>
               </div>
@@ -335,7 +373,11 @@ function Login() {
                   id="remember"
                   className="w-4 h-4 accent-green-600"
                 />
-                <label htmlFor="remember" className="text-sm text-slate-600">
+
+                <label
+                  htmlFor="remember"
+                  className="text-sm text-slate-600"
+                >
                   Remember me
                 </label>
               </div>
@@ -352,9 +394,12 @@ function Login() {
             <div className="mt-7 pt-6 border-t border-slate-100 text-center">
               <p className="text-sm text-slate-500">
                 Don't have an account?{" "}
+
                 <button
                   type="button"
-                  onClick={() => navigate("/create-account")}
+                  onClick={() =>
+                    navigate("/create-account")
+                  }
                   className="font-semibold text-green-700 hover:text-green-800"
                 >
                   Create account

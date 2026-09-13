@@ -251,7 +251,7 @@ function AdminReportDetails() {
   const imageUrl =
     report.imageUrl?.startsWith("http")
       ? report.imageUrl
-      : `http://localhost:5000${report.imageUrl}`;
+      : `${import.meta.env.VITE_API_URL?.replace("/api", "")}${report.imageUrl}`;
 
   const canReview =
     report.status === "REPORTED" ||

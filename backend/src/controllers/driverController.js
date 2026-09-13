@@ -1,7 +1,10 @@
 const mongoose = require("mongoose");
 
 const Driver = require("../models/Driver");
+const User = require("../models/User");
+const Vehicle = require("../models/Vehicle");
 const bcrypt = require("bcryptjs");
+
 
 const createDriver = async (req, res) => {
   try {

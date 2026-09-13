@@ -1,7 +1,6 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const driverRoutes = require("./src/routes/driverRoutes");
 require("dotenv").config();
 
 // ==========================================
@@ -11,12 +10,14 @@ const authRoutes = require("./src/routes/authRoutes");
 const reportRoutes = require("./src/routes/reportRoutes");
 const uploadRoutes = require("./src/routes/uploadRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
+
 const driverRoutes = require("./src/routes/driverRoutes");
+const driverManagementRoutes = require("./src/routes/driverManagementRoutes");
 const driverTaskRoutes = require("./src/routes/driverTaskRoutes");
+
 const vehicleRoutes = require("./src/routes/vehicleRoutes");
 const aiRoutes = require("./src/routes/aiRoutes");
 const villageRoutes = require("./src/routes/villageRoutes");
-const driverManagementRoutes = require("./src/routes/driverManagementRoutes");
 
 // ==========================================
 // MIDDLEWARE
@@ -43,7 +44,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve uploaded images
+// ==========================================
+// STATIC FILES
+// ==========================================
 app.use("/uploads", express.static("uploads"));
 
 // ==========================================
@@ -64,15 +67,23 @@ app.use("/api/admin", adminRoutes);
 
 // Vehicle Management
 app.use("/api/vehicles", vehicleRoutes);
+
+// Village Management
 app.use("/api/villages", villageRoutes);
 
-// Driver Management
+// ==========================================
+// ADMIN DRIVER MANAGEMENT
+// ==========================================
 app.use("/api/drivers", driverManagementRoutes);
 
-// Driver Tasks
+// ==========================================
+// DRIVER TASKS
+// ==========================================
 app.use("/api/driver", driverTaskRoutes);
 
+// ==========================================
 // AI Analysis
+// ==========================================
 app.use("/api/ai", aiRoutes);
 
 // ==========================================
@@ -90,8 +101,7 @@ app.get("/", (req, res) => {
 // ==========================================
 app.get("/api/protected", protect, (req, res) => {
   res.json({
-    message:
-      "You accessed a protected route successfully! 🔐",
+    message: "You accessed a protected route successfully! 🔐",
     user: req.user,
   });
 });
@@ -102,9 +112,7 @@ app.get("/api/protected", protect, (req, res) => {
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    console.log(
-      "MongoDB connected successfully ✅"
-    );
+    console.log("MongoDB connected successfully ✅");
   })
   .catch((error) => {
     console.error(

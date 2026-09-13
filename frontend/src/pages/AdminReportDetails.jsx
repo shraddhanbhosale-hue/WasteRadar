@@ -35,6 +35,7 @@ function AdminReportDetails() {
   const fetchReport = async () => {
     try {
       setLoading(true);
+      setError("");
 
       const response = await api.get(`/reports/${id}`);
 
@@ -58,14 +59,32 @@ function AdminReportDetails() {
   const fetchVehicles = async () => {
     try {
       setVehiclesLoading(true);
+      setError("");
 
       const response = await api.get("/vehicles");
 
       const allVehicles = response.data.vehicles || [];
 
+      console.log("All vehicles:", allVehicles);
+
       const availableVehicles = allVehicles.filter(
-        (vehicle) =>
-          vehicle.status === "AVAILABLE"
+        (vehicle) => {
+          const driver = vehicle.driverId;
+
+          return (
+            driver &&
+            driver.status === "AVAILABLE" &&
+            (
+              vehicle.status === "AVAILABLE" ||
+              vehicle.status === "ASSIGNED"
+            )
+          );
+        }
+      );
+
+      console.log(
+        "Available vehicles for assignment:",
+        availableVehicles
       );
 
       setVehicles(availableVehicles);
@@ -279,6 +298,7 @@ function AdminReportDetails() {
           </button>
 
           <div className="mt-5">
+
             <p className="text-sm font-semibold text-green-700">
               ADMIN CONTROL CENTER
             </p>
@@ -290,6 +310,7 @@ function AdminReportDetails() {
             <p className="text-slate-500 mt-1">
               Review and manage this waste report.
             </p>
+
           </div>
 
         </div>
@@ -332,11 +353,13 @@ function AdminReportDetails() {
             </div>
 
             <div className="p-5">
+
               <img
                 src={imageUrl}
                 alt="Waste report"
                 className="w-full max-h-[500px] object-contain rounded-xl bg-slate-100"
               />
+
             </div>
 
           </div>
@@ -384,6 +407,7 @@ function AdminReportDetails() {
               <div className="space-y-4">
 
                 <div>
+
                   <p className="text-xs text-slate-400">
                     Waste Type
                   </p>
@@ -391,9 +415,11 @@ function AdminReportDetails() {
                   <p className="font-semibold text-slate-800">
                     {report.wasteType}
                   </p>
+
                 </div>
 
                 <div>
+
                   <p className="text-xs text-slate-400">
                     Severity
                   </p>
@@ -401,9 +427,11 @@ function AdminReportDetails() {
                   <p className="font-semibold text-red-600">
                     {report.severity}
                   </p>
+
                 </div>
 
                 <div>
+
                   <p className="text-xs text-slate-400">
                     AI Confidence
                   </p>
@@ -415,6 +443,7 @@ function AdminReportDetails() {
                         )}%`
                       : "N/A"}
                   </p>
+
                 </div>
 
               </div>
@@ -454,6 +483,7 @@ function AdminReportDetails() {
             </div>
 
           </div>
+
         </div>
 
         {/* ========================================
@@ -491,6 +521,7 @@ function AdminReportDetails() {
             </div>
 
             <div>
+
               <p className="text-xs text-slate-400">
                 Latitude
               </p>
@@ -498,9 +529,11 @@ function AdminReportDetails() {
               <p className="font-semibold">
                 {report.latitude}
               </p>
+
             </div>
 
             <div>
+
               <p className="text-xs text-slate-400">
                 Longitude
               </p>
@@ -508,6 +541,7 @@ function AdminReportDetails() {
               <p className="font-semibold">
                 {report.longitude}
               </p>
+
             </div>
 
           </div>
@@ -601,10 +635,12 @@ function AdminReportDetails() {
             <div className="flex items-center gap-3">
 
               <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
+
                 <Truck
                   size={22}
                   className="text-green-700"
                 />
+
               </div>
 
               <div>
@@ -631,11 +667,14 @@ function AdminReportDetails() {
 
               {vehiclesLoading ? (
                 <div className="flex items-center gap-2 text-slate-500">
+
                   <Loader2
                     size={18}
                     className="animate-spin"
                   />
+
                   Loading available vehicles...
+
                 </div>
               ) : vehicles.length === 0 ? (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 text-yellow-800 text-sm">
@@ -668,6 +707,9 @@ function AdminReportDetails() {
                         "Waste Collection Vehicle"}
                       {" — Capacity: "}
                       {vehicle.capacity}
+                      {" — Driver: "}
+                      {vehicle.driverId?.name ||
+                        "Assigned Driver"}
                     </option>
                   ))}
 
@@ -737,6 +779,7 @@ function AdminReportDetails() {
               <div className="mt-5 grid md:grid-cols-3 gap-4">
 
                 <div>
+
                   <p className="text-xs text-green-700">
                     Vehicle Number
                   </p>
@@ -746,9 +789,11 @@ function AdminReportDetails() {
                       ?.vehicleNumber ||
                       "Unknown"}
                   </p>
+
                 </div>
 
                 <div>
+
                   <p className="text-xs text-green-700">
                     Vehicle Type
                   </p>
@@ -758,9 +803,11 @@ function AdminReportDetails() {
                       ?.vehicleType ||
                       "Waste Collection"}
                   </p>
+
                 </div>
 
                 <div>
+
                   <p className="text-xs text-green-700">
                     Capacity
                   </p>
@@ -769,6 +816,7 @@ function AdminReportDetails() {
                     {report.vehicleId
                       ?.capacity || "N/A"}
                   </p>
+
                 </div>
 
               </div>

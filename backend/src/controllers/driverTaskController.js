@@ -34,19 +34,20 @@ const getDriverTasks = async (req, res) => {
       .populate("villageId", "name district state")
       .populate(
         "vehicleId",
-        "vehicleNumber vehicleType capacity status"
+        "vehicleNumber vehicleType capacity status driverId"
       )
       .sort({ createdAt: -1 });
 
-    res.json({
+    return res.json({
       count: reports.length,
       tasks: reports,
     });
   } catch (error) {
-    console.error("Get driver tasks error:", error.message);
+    console.error("Get driver tasks error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Unable to load driver tasks",
+      error: error.message,
     });
   }
 };
@@ -103,15 +104,16 @@ const startTask = async (req, res) => {
       status: "ON_ROUTE",
     });
 
-    res.json({
+    return res.json({
       message: "Waste collection task started successfully",
       report,
     });
   } catch (error) {
-    console.error("Start task error:", error.message);
+    console.error("Start task error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Unable to start task",
+      error: error.message,
     });
   }
 };
@@ -158,25 +160,25 @@ const completeTask = async (req, res) => {
     await report.save();
 
     driver.status = "AVAILABLE";
-    driver.vehicleId = null;
     await driver.save();
 
     if (vehicleId) {
       await Vehicle.findByIdAndUpdate(vehicleId, {
-        driverId: null,
-        status: "AVAILABLE",
+        driverId: driver._id,
+        status: "ASSIGNED",
       });
     }
 
-    res.json({
+    return res.json({
       message: "Waste collection completed successfully",
       report,
     });
   } catch (error) {
-    console.error("Complete task error:", error.message);
+    console.error("Complete task error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Unable to complete task",
+      error: error.message,
     });
   }
 };

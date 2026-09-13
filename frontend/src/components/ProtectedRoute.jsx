@@ -19,15 +19,17 @@ function ProtectedRoute({ children, allowedRoles }) {
     return <Navigate to="/login" replace />;
   }
 
+  const userRole = String(user?.role || "CITIZEN").toUpperCase();
+
   if (
     allowedRoles &&
-    !allowedRoles.includes(user.role)
+    !allowedRoles.map((role) => String(role).toUpperCase()).includes(userRole)
   ) {
-    if (user.role === "ADMIN") {
+    if (userRole === "ADMIN") {
       return <Navigate to="/admin" replace />;
     }
 
-    if (user.role === "DRIVER") {
+    if (userRole === "DRIVER") {
       return <Navigate to="/driver" replace />;
     }
 

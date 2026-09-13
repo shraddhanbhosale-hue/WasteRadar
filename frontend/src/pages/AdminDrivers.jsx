@@ -29,7 +29,7 @@ function AdminDrivers() {
     name: "",
     phone: "",
     vehicleId: "",
-    status: "OFFLINE",
+    status: "AVAILABLE",
   });
 
   const [loading, setLoading] = useState(true);
@@ -48,18 +48,17 @@ function AdminDrivers() {
       setLoading(true);
       setError("");
 
-      const [driversRes, usersRes, vehiclesRes] =
-        await Promise.all([
-          fetch(`${API_URL}/drivers`, {
-            headers,
-          }),
-          fetch(`${API_URL}/auth/users`, {
-            headers,
-          }),
-          fetch(`${API_URL}/vehicles`, {
-            headers,
-          }),
-        ]);
+      const [driversRes, usersRes, vehiclesRes] = await Promise.all([
+        fetch(`${API_URL}/drivers`, {
+          headers,
+        }),
+        fetch(`${API_URL}/auth/users`, {
+          headers,
+        }),
+        fetch(`${API_URL}/vehicles`, {
+          headers,
+        }),
+      ]);
 
       const driversData = await driversRes.json();
       const usersData = await usersRes.json();
@@ -90,7 +89,6 @@ function AdminDrivers() {
       );
 
       setUsers(citizenUsers);
-
       setVehicles(vehiclesData.vehicles || []);
     } catch (err) {
       console.error("Load driver management data error:", err);
@@ -110,7 +108,7 @@ function AdminDrivers() {
       name: "",
       phone: "",
       vehicleId: "",
-      status: "OFFLINE",
+      status: "AVAILABLE",
     });
 
     setEditingDriver(null);
@@ -146,17 +144,20 @@ function AdminDrivers() {
         throw new Error("Driver name is required");
       }
 
+      if (!formData.vehicleId) {
+        throw new Error("Please assign a vehicle to the driver");
+      }
+
       const payload = {
         name: formData.name.trim(),
         phone: formData.phone.trim(),
+        vehicleId: formData.vehicleId,
         status: formData.status,
       };
 
       let response;
 
       if (editingDriver) {
-        payload.vehicleId = formData.vehicleId || null;
-
         response = await fetch(
           `${API_URL}/drivers/${editingDriver._id}`,
           {
@@ -167,10 +168,6 @@ function AdminDrivers() {
         );
       } else {
         payload.userId = formData.userId;
-
-        if (formData.vehicleId) {
-          payload.vehicleId = formData.vehicleId;
-        }
 
         response = await fetch(`${API_URL}/drivers`, {
           method: "POST",
@@ -203,12 +200,9 @@ function AdminDrivers() {
     setFormData({
       userId: driver.userId?._id || "",
       name: driver.name || "",
-      phone:
-        driver.phone ||
-        driver.userId?.phone ||
-        "",
+      phone: driver.phone || driver.userId?.phone || "",
       vehicleId: driver.vehicleId?._id || "",
-      status: driver.status || "OFFLINE",
+      status: driver.status || "AVAILABLE",
     });
 
     setShowForm(true);
@@ -271,8 +265,6 @@ function AdminDrivers() {
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="mx-auto max-w-7xl">
-
-        {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
@@ -305,16 +297,13 @@ function AdminDrivers() {
           </button>
         </div>
 
-        {/* Error */}
         {error && (
           <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
             {error}
           </div>
         )}
 
-        {/* Summary Cards */}
         <div className="mb-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <Users className="text-blue-600" size={24} />
@@ -379,18 +368,13 @@ function AdminDrivers() {
               Offline
             </p>
           </div>
-
         </div>
 
-        {/* Form */}
         {showForm && (
           <div className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-xl font-bold text-slate-900">
-                {editingDriver
-                  ? "Edit Driver"
-                  : "Add New Driver"}
+                {editingDriver ? "Edit Driver" : "Add New Driver"}
               </h2>
 
               <button
@@ -405,8 +389,6 @@ function AdminDrivers() {
               onSubmit={handleSubmit}
               className="grid gap-5 md:grid-cols-2"
             >
-
-              {/* Citizen User */}
               {!editingDriver && (
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-700">
@@ -450,7 +432,6 @@ function AdminDrivers() {
                 </div>
               )}
 
-              {/* Name */}
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
                   Driver Name
@@ -471,7 +452,6 @@ function AdminDrivers() {
                 />
               </div>
 
-              {/* Phone */}
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
                   Phone
@@ -491,7 +471,6 @@ function AdminDrivers() {
                 />
               </div>
 
-              {/* Vehicle */}
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
                   Assign Vehicle
@@ -505,10 +484,11 @@ function AdminDrivers() {
                       vehicleId: e.target.value,
                     }))
                   }
+                  required
                   className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
                 >
                   <option value="">
-                    No vehicle
+                    Select vehicle
                   </option>
 
                   {availableVehicles.map((vehicle) => (
@@ -525,13 +505,13 @@ function AdminDrivers() {
                 </select>
 
                 {availableVehicles.length === 0 && (
-                  <p className="mt-2 text-xs text-slate-500">
-                    No available vehicles.
+                  <p className="mt-2 text-xs text-red-500">
+                    No available vehicles. Create an available
+                    vehicle first.
                   </p>
                 )}
               </div>
 
-              {/* Status */}
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
                   Status
@@ -547,12 +527,12 @@ function AdminDrivers() {
                   }
                   className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
                 >
-                  <option value="OFFLINE">
-                    Offline
-                  </option>
-
                   <option value="AVAILABLE">
                     Available
+                  </option>
+
+                  <option value="OFFLINE">
+                    Offline
                   </option>
 
                   <option value="ON_TASK">
@@ -561,13 +541,13 @@ function AdminDrivers() {
                 </select>
               </div>
 
-              {/* Buttons */}
               <div className="flex items-end gap-3">
                 <button
                   type="submit"
                   disabled={
                     saving ||
-                    (!editingDriver && users.length === 0)
+                    (!editingDriver && users.length === 0) ||
+                    availableVehicles.length === 0
                   }
                   className="rounded-lg bg-emerald-600 px-6 py-3 font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -586,14 +566,11 @@ function AdminDrivers() {
                   Cancel
                 </button>
               </div>
-
             </form>
           </div>
         )}
 
-        {/* Drivers Table */}
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-
           <div className="border-b border-slate-200 px-6 py-5">
             <h2 className="text-xl font-bold text-slate-900">
               Drivers
@@ -621,8 +598,7 @@ function AdminDrivers() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px]">
-
+              <table className="w-full min-w-[800px]">
                 <thead className="bg-slate-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
@@ -631,10 +607,6 @@ function AdminDrivers() {
 
                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
                       Phone
-                    </th>
-
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
-                      Village
                     </th>
 
                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
@@ -652,7 +624,6 @@ function AdminDrivers() {
                 </thead>
 
                 <tbody className="divide-y divide-slate-100">
-
                   {drivers.map((driver) => (
                     <tr
                       key={driver._id}
@@ -677,10 +648,6 @@ function AdminDrivers() {
                       </td>
 
                       <td className="px-6 py-4 text-sm text-slate-600">
-                        {driver.villageId?.name || "-"}
-                      </td>
-
-                      <td className="px-6 py-4 text-sm text-slate-600">
                         {driver.vehicleId?.vehicleNumber ||
                           "Not assigned"}
                       </td>
@@ -701,11 +668,8 @@ function AdminDrivers() {
 
                       <td className="px-6 py-4">
                         <div className="flex justify-end gap-2">
-
                           <button
-                            onClick={() =>
-                              handleEdit(driver)
-                            }
+                            onClick={() => handleEdit(driver)}
                             className="rounded-lg border border-slate-200 p-2 text-blue-600 hover:bg-blue-50"
                             title="Edit driver"
                           >
@@ -721,17 +685,14 @@ function AdminDrivers() {
                           >
                             <Trash2 size={18} />
                           </button>
-
                         </div>
                       </td>
                     </tr>
                   ))}
-
                 </tbody>
               </table>
             </div>
           )}
-
         </div>
       </div>
     </div>

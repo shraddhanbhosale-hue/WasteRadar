@@ -10,7 +10,6 @@ const getAllReports = async (req, res) => {
   try {
     const filter = {};
 
-    // Admin sees reports from their village
     if (req.user.villageId) {
       filter.villageId = req.user.villageId;
     }
@@ -225,10 +224,7 @@ const assignVehicle = async (req, res) => {
       });
     }
 
-    // ------------------------------------------
-    // FIND REPORT
-    // ------------------------------------------
-
+    // Find report
     const report = await WasteReport.findOne({
       _id: id,
       ...(req.user.villageId && {
@@ -242,10 +238,7 @@ const assignVehicle = async (req, res) => {
       });
     }
 
-    // ------------------------------------------
-    // REPORT MUST BE APPROVED
-    // ------------------------------------------
-
+    // Report must be approved
     if (report.status !== "ADMIN_REVIEW") {
       return res.status(400).json({
         message:
@@ -253,10 +246,7 @@ const assignVehicle = async (req, res) => {
       });
     }
 
-    // ------------------------------------------
-    // FIND VEHICLE
-    // ------------------------------------------
-
+    // Find vehicle in same village
     const vehicle = await Vehicle.findOne({
       _id: vehicleId,
       ...(req.user.villageId && {
@@ -273,10 +263,7 @@ const assignVehicle = async (req, res) => {
       });
     }
 
-    // ------------------------------------------
-    // VEHICLE MUST HAVE DRIVER
-    // ------------------------------------------
-
+    // Vehicle must have a driver
     if (!vehicle.driverId) {
       return res.status(400).json({
         message:
@@ -284,10 +271,7 @@ const assignVehicle = async (req, res) => {
       });
     }
 
-    // ------------------------------------------
-    // DRIVER MUST BE AVAILABLE
-    // ------------------------------------------
-
+    // Driver must be available
     if (vehicle.driverId.status !== "AVAILABLE") {
       return res.status(400).json({
         message:
@@ -295,15 +279,8 @@ const assignVehicle = async (req, res) => {
       });
     }
 
-    // ------------------------------------------
-    // VEHICLE STATUS
-    // ------------------------------------------
-    // AVAILABLE = not assigned to driver
-    // ASSIGNED = assigned to driver but available for task
-    //
-    // Therefore both are valid here.
-    // ON_ROUTE / COLLECTING / MAINTENANCE are not valid.
-
+    // Vehicle can be ASSIGNED because ASSIGNED
+    // means it already belongs to a driver.
     if (
       !["AVAILABLE", "ASSIGNED"].includes(
         vehicle.status
@@ -315,10 +292,7 @@ const assignVehicle = async (req, res) => {
       });
     }
 
-    // ------------------------------------------
-    // PREVENT DUPLICATE ASSIGNMENT
-    // ------------------------------------------
-
+    // Prevent duplicate assignment
     if (
       report.vehicleId &&
       report.vehicleId.toString() ===
@@ -330,27 +304,18 @@ const assignVehicle = async (req, res) => {
       });
     }
 
-    // ------------------------------------------
-    // ASSIGN VEHICLE TO REPORT
-    // ------------------------------------------
-
+    // Assign vehicle to report
     report.vehicleId = vehicle._id;
     report.status = "VEHICLE_ASSIGNED";
 
     await report.save();
 
-    // ------------------------------------------
-    // VEHICLE IS NOW ON ROUTE
-    // ------------------------------------------
-
+    // Vehicle is now working on this collection task
     vehicle.status = "ON_ROUTE";
 
     await vehicle.save();
 
-    // ------------------------------------------
-    // DRIVER IS NOW ON TASK
-    // ------------------------------------------
-
+    // Driver is now working on this collection task
     await User.findByIdAndUpdate(
       vehicle.driverId._id,
       {
@@ -358,10 +323,7 @@ const assignVehicle = async (req, res) => {
       }
     );
 
-    // ------------------------------------------
-    // RETURN UPDATED REPORT
-    // ------------------------------------------
-
+    // Return updated report
     const updatedReport =
       await WasteReport.findById(report._id)
         .populate(
@@ -378,8 +340,7 @@ const assignVehicle = async (req, res) => {
         );
 
     res.json({
-      message:
-        "Vehicle assigned successfully",
+      message: "Vehicle assigned successfully",
       report: updatedReport,
     });
   } catch (error) {
@@ -389,8 +350,7 @@ const assignVehicle = async (req, res) => {
     );
 
     res.status(500).json({
-      message:
-        "Unable to assign vehicle",
+      message: "Unable to assign vehicle",
     });
   }
 };
@@ -406,55 +366,3 @@ module.exports = {
   rejectReport,
   assignVehicle,
 };
-
-const express = require("express");
-
-const {
-  getAllReports,
-  getDashboardStats,
-  approveReport,
-  rejectReport,
-  assignVehicle,
-} = require("../controllers/adminController");
-
-const protect = require("../middleware/authMiddleware");
-const role = require("../middleware/roleMiddleware");
-
-const router = express.Router();
-
-router.get(
-  "/dashboard",
-  protect,
-  role("ADMIN"),
-  getDashboardStats
-);
-
-router.get(
-  "/reports",
-  protect,
-  role("ADMIN"),
-  getAllReports
-);
-
-router.put(
-  "/reports/:id/approve",
-  protect,
-  role("ADMIN"),
-  approveReport
-);
-
-router.put(
-  "/reports/:id/reject",
-  protect,
-  role("ADMIN"),
-  rejectReport
-);
-
-router.put(
-  "/reports/:id/assign-vehicle",
-  protect,
-  role("ADMIN"),
-  assignVehicle
-);
-
-module.exports = router;

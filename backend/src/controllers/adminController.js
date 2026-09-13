@@ -406,13 +406,7 @@ module.exports = {
   rejectReport,
   assignVehicle,
 };
-```
 
-### Your `adminRoutes.js`
-
-Your routes are already correct. You **don't need to change them**:
-
-```javascript
 const express = require("express");
 
 const {

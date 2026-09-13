@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   LogOut,
   ClipboardList,
+  CheckCircle,
 } from "lucide-react";
 
 import api from "../services/api";
@@ -24,14 +25,11 @@ function DriverDashboard() {
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
   // ==========================================
-  // GET LOGGED-IN USER (for greeting)
+  // GET LOGGED-IN USER
   // ==========================================
-
   const getUser = () => {
     try {
-      return JSON.parse(
-        localStorage.getItem("wasteradar_user")
-      );
+      return JSON.parse(localStorage.getItem("wasteradar_user"));
     } catch {
       return null;
     }
@@ -42,7 +40,6 @@ function DriverDashboard() {
   // ==========================================
   // FETCH DRIVER TASKS
   // ==========================================
-
   const fetchTasks = async () => {
     try {
       setLoading(true);
@@ -53,10 +50,8 @@ function DriverDashboard() {
       setTasks(response.data.tasks || []);
     } catch (error) {
       console.error("Fetch driver tasks error:", error);
-
       setError(
-        error.response?.data?.message ||
-          "Unable to load your tasks."
+        error.response?.data?.message || "Unable to load your tasks."
       );
     } finally {
       setLoading(false);
@@ -68,9 +63,8 @@ function DriverDashboard() {
   }, []);
 
   // ==========================================
-  // START COLLECTION
+  // START COLLECTION  →  VEHICLE_ASSIGNED → IN_PROGRESS
   // ==========================================
-
   const handleStart = async (taskId) => {
     try {
       setActionLoadingId(taskId);
@@ -80,14 +74,11 @@ function DriverDashboard() {
       await api.put(`/driver/tasks/${taskId}/start`);
 
       setSuccess("Collection started successfully.");
-
       await fetchTasks();
     } catch (error) {
       console.error("Start task error:", error);
-
       setError(
-        error.response?.data?.message ||
-          "Unable to start collection."
+        error.response?.data?.message || "Unable to start collection."
       );
     } finally {
       setActionLoadingId(null);
@@ -95,9 +86,8 @@ function DriverDashboard() {
   };
 
   // ==========================================
-  // MARK AS COLLECTED
+  // MARK AS COLLECTED  →  IN_PROGRESS → RESOLVED
   // ==========================================
-
   const handleComplete = async (taskId) => {
     try {
       setActionLoadingId(taskId);
@@ -107,14 +97,11 @@ function DriverDashboard() {
       await api.put(`/driver/tasks/${taskId}/complete`);
 
       setSuccess("Waste collection marked as completed.");
-
       await fetchTasks();
     } catch (error) {
       console.error("Complete task error:", error);
-
       setError(
-        error.response?.data?.message ||
-          "Unable to complete collection."
+        error.response?.data?.message || "Unable to complete collection."
       );
     } finally {
       setActionLoadingId(null);
@@ -124,7 +111,6 @@ function DriverDashboard() {
   // ==========================================
   // LOGOUT
   // ==========================================
-
   const handleLogout = () => {
     localStorage.removeItem("wasteradar_token");
     localStorage.removeItem("wasteradar_user");
@@ -132,12 +118,10 @@ function DriverDashboard() {
   };
 
   // ==========================================
-  // FORMAT DATE
+  // HELPERS
   // ==========================================
-
   const formatDate = (date) => {
     if (!date) return "-";
-
     return new Date(date).toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "short",
@@ -145,56 +129,34 @@ function DriverDashboard() {
     });
   };
 
-  // ==========================================
-  // STATUS LABEL
-  // ==========================================
-
   const getStatusLabel = (status) => {
     if (status === "VEHICLE_ASSIGNED") return "Assigned";
     if (status === "IN_PROGRESS") return "In Progress";
+    if (status === "RESOLVED") return "Completed";
     return status;
   };
 
   const getStatusStyle = (status) => {
-    if (status === "IN_PROGRESS") {
-      return "bg-blue-100 text-blue-700";
-    }
+    if (status === "IN_PROGRESS") return "bg-blue-100 text-blue-700";
+    if (status === "RESOLVED") return "bg-green-100 text-green-700";
     return "bg-amber-100 text-amber-700";
   };
 
-  // ==========================================
-  // SUMMARY COUNTS
-  // ==========================================
-
-  const assignedCount = tasks.filter(
-    (task) => task.status === "VEHICLE_ASSIGNED"
-  ).length;
-
-  const inProgressCount = tasks.filter(
-    (task) => task.status === "IN_PROGRESS"
-  ).length;
+  // Summary counts
+  const assignedCount = tasks.filter((t) => t.status === "VEHICLE_ASSIGNED").length;
+  const inProgressCount = tasks.filter((t) => t.status === "IN_PROGRESS").length;
+  const completedCount = tasks.filter((t) => t.status === "RESOLVED").length;
 
   return (
     <div className="min-h-screen bg-slate-50">
-
-      {/* ========================================
-          NAVBAR
-      ========================================= */}
-
+      {/* ===================== NAVBAR ===================== */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
-
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-
           <div className="flex items-center gap-2">
-
             <div className="w-9 h-9 rounded-lg bg-green-700 text-white flex items-center justify-center">
               <Recycle size={20} />
             </div>
-
-            <span className="font-bold text-slate-900">
-              WasteRadar
-            </span>
-
+            <span className="font-bold text-slate-900">WasteRadar</span>
           </div>
 
           <button
@@ -204,35 +166,21 @@ function DriverDashboard() {
             <LogOut size={17} />
             Logout
           </button>
-
         </div>
-
       </header>
 
-      {/* ========================================
-          MAIN
-      ========================================= */}
-
+      {/* ===================== MAIN ===================== */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-
-        {/* HEADER */}
-
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-
           <div>
-
-            <p className="text-sm font-semibold text-green-700">
-              DRIVER
-            </p>
-
+            <p className="text-sm font-semibold text-green-700">DRIVER</p>
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">
               Welcome, {user?.name || "Driver"} 👋
             </h1>
-
             <p className="text-slate-500 mt-1 text-sm sm:text-base">
               View and manage your assigned waste collection tasks.
             </p>
-
           </div>
 
           <button
@@ -240,150 +188,92 @@ function DriverDashboard() {
             disabled={loading}
             className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-sm font-semibold self-start"
           >
-            <RefreshCw
-              size={17}
-              className={loading ? "animate-spin" : ""}
-            />
+            <RefreshCw size={17} className={loading ? "animate-spin" : ""} />
             Refresh
           </button>
-
         </div>
 
-        {/* ERROR */}
-
+        {/* Error / Success */}
         {error && (
           <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-sm">
             {error}
           </div>
         )}
-
-        {/* SUCCESS */}
-
         {success && (
           <div className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-green-700 text-sm">
             {success}
           </div>
         )}
 
-        {/* ========================================
-            SUMMARY CARDS
-        ========================================= */}
-
-        <div className="grid grid-cols-2 gap-4 sm:gap-5 mb-6">
-
+        {/* ===================== SUMMARY CARDS ===================== */}
+        <div className="grid grid-cols-3 gap-4 sm:gap-5 mb-6">
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-
             <div className="flex items-center gap-3">
-
               <div className="w-11 h-11 shrink-0 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
                 <ClipboardList size={22} />
               </div>
-
               <div>
-
-                <p className="text-sm text-slate-500">
-                  Assigned
-                </p>
-
-                <p className="text-2xl font-bold text-slate-900">
-                  {assignedCount}
-                </p>
-
+                <p className="text-sm text-slate-500">Assigned</p>
+                <p className="text-2xl font-bold text-slate-900">{assignedCount}</p>
               </div>
-
             </div>
-
           </div>
 
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-
             <div className="flex items-center gap-3">
-
               <div className="w-11 h-11 shrink-0 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
                 <Truck size={22} />
               </div>
-
               <div>
-
-                <p className="text-sm text-slate-500">
-                  In Progress
-                </p>
-
-                <p className="text-2xl font-bold text-slate-900">
-                  {inProgressCount}
-                </p>
-
+                <p className="text-sm text-slate-500">In Progress</p>
+                <p className="text-2xl font-bold text-slate-900">{inProgressCount}</p>
               </div>
-
             </div>
-
           </div>
 
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 shrink-0 rounded-xl bg-green-50 text-green-600 flex items-center justify-center">
+                <CheckCircle size={22} />
+              </div>
+              <div>
+                <p className="text-sm text-slate-500">Completed</p>
+                <p className="text-2xl font-bold text-slate-900">{completedCount}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* ========================================
-            TASKS LIST
-        ========================================= */}
-
+        {/* ===================== TASKS LIST ===================== */}
         {loading ? (
-
           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-14 text-center">
-
-            <Loader2
-              size={36}
-              className="mx-auto animate-spin text-green-700"
-            />
-
-            <p className="mt-4 text-slate-500">
-              Loading your tasks...
-            </p>
-
+            <Loader2 size={36} className="mx-auto animate-spin text-green-700" />
+            <p className="mt-4 text-slate-500">Loading your tasks...</p>
           </div>
-
         ) : tasks.length === 0 ? (
-
           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-14 text-center">
-
-            <Truck
-              size={45}
-              className="mx-auto text-slate-300"
-            />
-
-            <h3 className="font-bold text-slate-800 mt-4">
-              No tasks assigned
-            </h3>
-
+            <Truck size={45} className="mx-auto text-slate-300" />
+            <h3 className="font-bold text-slate-800 mt-4">No tasks assigned</h3>
             <p className="text-sm text-slate-500 mt-1">
               New collection tasks will appear here once an admin assigns a vehicle to you.
             </p>
-
           </div>
-
         ) : (
-
           <div className="space-y-4">
-
             {tasks.map((task) => (
-
               <div
                 key={task._id}
                 className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5"
               >
-
-                {/* TOP ROW */}
-
+                {/* Top row */}
                 <div className="flex items-start justify-between gap-3">
-
                   <div className="min-w-0">
-
                     <p className="font-semibold text-slate-900 truncate">
                       {task.reportId || task._id}
                     </p>
-
                     <p className="text-xs text-slate-500 mt-0.5">
                       {formatDate(task.createdAt)}
                     </p>
-
                   </div>
 
                   <span
@@ -393,13 +283,10 @@ function DriverDashboard() {
                   >
                     {getStatusLabel(task.status)}
                   </span>
-
                 </div>
 
-                {/* DETAILS */}
-
+                {/* Details */}
                 <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-3">
-
                   <div>
                     <p className="text-xs font-semibold text-slate-400 uppercase">
                       Waste Type
@@ -433,9 +320,7 @@ function DriverDashboard() {
                       <p className="text-xs font-semibold text-slate-400 uppercase">
                         Address
                       </p>
-                      <p className="text-sm text-slate-700 mt-1">
-                        {task.address}
-                      </p>
+                      <p className="text-sm text-slate-700 mt-1">{task.address}</p>
                     </div>
                   )}
 
@@ -451,12 +336,21 @@ function DriverDashboard() {
                     </p>
                   </div>
 
+                  {/* Vehicle Info */}
+                  {task.vehicle && (
+                    <div className="col-span-2">
+                      <p className="text-xs font-semibold text-slate-400 uppercase">
+                        Assigned Vehicle
+                      </p>
+                      <p className="text-sm text-slate-700 mt-1">
+                        {task.vehicle.vehicleNumber} ({task.vehicle.vehicleType})
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                {/* ACTION BUTTON */}
-
+                {/* Action Buttons */}
                 <div className="mt-5">
-
                   {task.status === "VEHICLE_ASSIGNED" && (
                     <button
                       onClick={() => handleStart(task._id)}
@@ -487,18 +381,18 @@ function DriverDashboard() {
                     </button>
                   )}
 
+                  {task.status === "RESOLVED" && (
+                    <div className="flex items-center gap-2 text-green-700 font-semibold">
+                      <CheckCircle2 size={18} />
+                      Collection Completed
+                    </div>
+                  )}
                 </div>
-
               </div>
-
             ))}
-
           </div>
-
         )}
-
       </main>
-
     </div>
   );
 }

@@ -11,7 +11,8 @@ import {
   X,
 } from "lucide-react";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 function AdminDrivers() {
   const navigate = useNavigate();
@@ -27,7 +28,6 @@ function AdminDrivers() {
     userId: "",
     name: "",
     phone: "",
-    villageId: "",
     vehicleId: "",
     status: "OFFLINE",
   });
@@ -84,9 +84,16 @@ function AdminDrivers() {
       }
 
       setDrivers(driversData.drivers || []);
-      setUsers(usersData.users || []);
+
+      const citizenUsers = (usersData.users || []).filter(
+        (user) => user.role === "CITIZEN"
+      );
+
+      setUsers(citizenUsers);
+
       setVehicles(vehiclesData.vehicles || []);
     } catch (err) {
+      console.error("Load driver management data error:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -102,7 +109,6 @@ function AdminDrivers() {
       userId: "",
       name: "",
       phone: "",
-      villageId: "",
       vehicleId: "",
       status: "OFFLINE",
     });
@@ -122,7 +128,6 @@ function AdminDrivers() {
       userId,
       name: selectedUser?.name || "",
       phone: selectedUser?.phone || "",
-      villageId: selectedUser?.villageId?._id || "",
     }));
   };
 
@@ -133,9 +138,17 @@ function AdminDrivers() {
       setSaving(true);
       setError("");
 
+      if (!editingDriver && !formData.userId) {
+        throw new Error("Please select a citizen user");
+      }
+
+      if (!formData.name.trim()) {
+        throw new Error("Driver name is required");
+      }
+
       const payload = {
-        name: formData.name,
-        phone: formData.phone,
+        name: formData.name.trim(),
+        phone: formData.phone.trim(),
         status: formData.status,
       };
 
@@ -154,7 +167,6 @@ function AdminDrivers() {
         );
       } else {
         payload.userId = formData.userId;
-        payload.villageId = formData.villageId;
 
         if (formData.vehicleId) {
           payload.vehicleId = formData.vehicleId;
@@ -178,6 +190,7 @@ function AdminDrivers() {
       await loadData();
       resetForm();
     } catch (err) {
+      console.error("Save driver error:", err);
       setError(err.message);
     } finally {
       setSaving(false);
@@ -190,8 +203,10 @@ function AdminDrivers() {
     setFormData({
       userId: driver.userId?._id || "",
       name: driver.name || "",
-      phone: driver.phone || "",
-      villageId: driver.villageId?._id || "",
+      phone:
+        driver.phone ||
+        driver.userId?.phone ||
+        "",
       vehicleId: driver.vehicleId?._id || "",
       status: driver.status || "OFFLINE",
     });
@@ -228,6 +243,7 @@ function AdminDrivers() {
 
       await loadData();
     } catch (err) {
+      console.error("Delete driver error:", err);
       setError(err.message);
     }
   };
@@ -302,10 +318,12 @@ function AdminDrivers() {
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <Users className="text-blue-600" size={24} />
+
               <span className="text-3xl font-bold text-slate-900">
                 {totalDrivers}
               </span>
             </div>
+
             <p className="text-sm font-medium text-slate-500">
               Total Drivers
             </p>
@@ -313,11 +331,16 @@ function AdminDrivers() {
 
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
-              <UserCheck className="text-emerald-600" size={24} />
+              <UserCheck
+                className="text-emerald-600"
+                size={24}
+              />
+
               <span className="text-3xl font-bold text-slate-900">
                 {availableDrivers}
               </span>
             </div>
+
             <p className="text-sm font-medium text-slate-500">
               Available
             </p>
@@ -325,11 +348,16 @@ function AdminDrivers() {
 
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
-              <Truck className="text-orange-600" size={24} />
+              <Truck
+                className="text-orange-600"
+                size={24}
+              />
+
               <span className="text-3xl font-bold text-slate-900">
                 {onTaskDrivers}
               </span>
             </div>
+
             <p className="text-sm font-medium text-slate-500">
               On Task
             </p>
@@ -337,11 +365,16 @@ function AdminDrivers() {
 
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
-              <Users className="text-slate-500" size={24} />
+              <Users
+                className="text-slate-500"
+                size={24}
+              />
+
               <span className="text-3xl font-bold text-slate-900">
                 {offlineDrivers}
               </span>
             </div>
+
             <p className="text-sm font-medium text-slate-500">
               Offline
             </p>
@@ -373,7 +406,7 @@ function AdminDrivers() {
               className="grid gap-5 md:grid-cols-2"
             >
 
-              {/* User */}
+              {/* Citizen User */}
               {!editingDriver && (
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-700">
@@ -392,15 +425,28 @@ function AdminDrivers() {
                       Select citizen
                     </option>
 
-                    {users.map((user) => (
-                      <option
-                        key={user._id}
-                        value={user._id}
-                      >
-                        {user.name} — {user.email}
+                    {users.length === 0 ? (
+                      <option value="" disabled>
+                        No citizen users available
                       </option>
-                    ))}
+                    ) : (
+                      users.map((user) => (
+                        <option
+                          key={user._id}
+                          value={user._id}
+                        >
+                          {user.name} — {user.email}
+                        </option>
+                      ))
+                    )}
                   </select>
+
+                  {users.length === 0 && (
+                    <p className="mt-2 text-xs text-red-500">
+                      No CITIZEN users found. Register a citizen
+                      account first.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -414,13 +460,14 @@ function AdminDrivers() {
                   type="text"
                   value={formData.name}
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
+                    setFormData((prev) => ({
+                      ...prev,
                       name: e.target.value,
-                    })
+                    }))
                   }
                   required
                   className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
+                  placeholder="Driver name"
                 />
               </div>
 
@@ -434,12 +481,13 @@ function AdminDrivers() {
                   type="text"
                   value={formData.phone}
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
+                    setFormData((prev) => ({
+                      ...prev,
                       phone: e.target.value,
-                    })
+                    }))
                   }
                   className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
+                  placeholder="Phone number"
                 />
               </div>
 
@@ -452,10 +500,10 @@ function AdminDrivers() {
                 <select
                   value={formData.vehicleId}
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
+                    setFormData((prev) => ({
+                      ...prev,
                       vehicleId: e.target.value,
-                    })
+                    }))
                   }
                   className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
                 >
@@ -468,11 +516,19 @@ function AdminDrivers() {
                       key={vehicle._id}
                       value={vehicle._id}
                     >
-                      {vehicle.vehicleNumber} —{" "}
-                      {vehicle.vehicleType}
+                      {vehicle.vehicleNumber}
+                      {vehicle.vehicleType
+                        ? ` — ${vehicle.vehicleType}`
+                        : ""}
                     </option>
                   ))}
                 </select>
+
+                {availableVehicles.length === 0 && (
+                  <p className="mt-2 text-xs text-slate-500">
+                    No available vehicles.
+                  </p>
+                )}
               </div>
 
               {/* Status */}
@@ -484,19 +540,21 @@ function AdminDrivers() {
                 <select
                   value={formData.status}
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
+                    setFormData((prev) => ({
+                      ...prev,
                       status: e.target.value,
-                    })
+                    }))
                   }
                   className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
                 >
                   <option value="OFFLINE">
                     Offline
                   </option>
+
                   <option value="AVAILABLE">
                     Available
                   </option>
+
                   <option value="ON_TASK">
                     On Task
                   </option>
@@ -507,8 +565,11 @@ function AdminDrivers() {
               <div className="flex items-end gap-3">
                 <button
                   type="submit"
-                  disabled={saving}
-                  className="rounded-lg bg-emerald-600 px-6 py-3 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                  disabled={
+                    saving ||
+                    (!editingDriver && users.length === 0)
+                  }
+                  className="rounded-lg bg-emerald-600 px-6 py-3 font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {saving
                     ? "Saving..."
@@ -610,7 +671,9 @@ function AdminDrivers() {
                       </td>
 
                       <td className="px-6 py-4 text-sm text-slate-600">
-                        {driver.phone || "-"}
+                        {driver.phone ||
+                          driver.userId?.phone ||
+                          "-"}
                       </td>
 
                       <td className="px-6 py-4 text-sm text-slate-600">
@@ -618,7 +681,8 @@ function AdminDrivers() {
                       </td>
 
                       <td className="px-6 py-4 text-sm text-slate-600">
-                        {driver.vehicleId?.vehicleNumber || "Not assigned"}
+                        {driver.vehicleId?.vehicleNumber ||
+                          "Not assigned"}
                       </td>
 
                       <td className="px-6 py-4">
@@ -643,6 +707,7 @@ function AdminDrivers() {
                               handleEdit(driver)
                             }
                             className="rounded-lg border border-slate-200 p-2 text-blue-600 hover:bg-blue-50"
+                            title="Edit driver"
                           >
                             <Pencil size={18} />
                           </button>
@@ -652,6 +717,7 @@ function AdminDrivers() {
                               handleDelete(driver._id)
                             }
                             className="rounded-lg border border-slate-200 p-2 text-red-600 hover:bg-red-50"
+                            title="Delete driver"
                           >
                             <Trash2 size={18} />
                           </button>

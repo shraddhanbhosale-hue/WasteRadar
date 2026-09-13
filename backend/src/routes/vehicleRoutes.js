@@ -1,188 +1,321 @@
 const express = require("express");
 const mongoose = require("mongoose");
 
+const Vehicle = require("../models/Vehicle");
 const Village = require("../models/Village");
 const User = require("../models/User");
 const protect = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371;
-
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c;
-};
-
 /*
-  GET ALL VILLAGES
-  Citizen can use this to select their village
+  CREATE VEHICLE
+  Admin only
 */
-router.get("/", protect, async (req, res) => {
+router.post("/", protect, async (req, res) => {
   try {
-    const villages = await Village.find()
-      .sort({ name: 1 })
-      .select("_id name district state latitude longitude");
+    if (req.user.role !== "ADMIN") {
+      return res.status(403).json({
+        message: "Only admins can create vehicles",
+      });
+    }
 
-    res.json(villages);
-  } catch (error) {
-    console.error("Get villages error:", error);
+    const {
+      vehicleNumber,
+      type,
+      capacity,
+      status,
+      villageId,
+      driverId,
+    } = req.body;
 
-    res.status(500).json({
-      message: "Unable to fetch villages",
-    });
-  }
-});
-
-/*
-  FIND NEAREST VILLAGE (ALL INDIA)
-  Uses user's current latitude and longitude
-*/
-router.get("/nearest", protect, async (req, res) => {
-  try {
-    const { latitude, longitude } = req.query;
-
-    if (latitude === undefined || longitude === undefined) {
+    if (!vehicleNumber) {
       return res.status(400).json({
-        message: "Latitude and longitude are required",
+        message: "Vehicle number is required",
       });
     }
 
-    const userLatitude = Number(latitude);
-    const userLongitude = Number(longitude);
+    if (villageId) {
+      if (!mongoose.Types.ObjectId.isValid(villageId)) {
+        return res.status(400).json({
+          message: "Invalid village ID",
+        });
+      }
 
-    if (
-      Number.isNaN(userLatitude) ||
-      Number.isNaN(userLongitude)
-    ) {
-      return res.status(400).json({
-        message: "Invalid latitude or longitude",
-      });
-    }
+      const village = await Village.findById(villageId);
 
-    if (
-      userLatitude < -90 ||
-      userLatitude > 90 ||
-      userLongitude < -180 ||
-      userLongitude > 180
-    ) {
-      return res.status(400).json({
-        message: "Invalid location coordinates",
-      });
-    }
-
-    // Search across all villages in the database (no district filter)
-    const villages = await Village.find();
-
-    if (!villages.length) {
-      return res.status(404).json({
-        message: "No villages found in database",
-      });
-    }
-
-    let nearestVillage = null;
-    let shortestDistance = Infinity;
-
-    for (const village of villages) {
-      const distance = calculateDistance(
-        userLatitude,
-        userLongitude,
-        village.latitude,
-        village.longitude
-      );
-
-      if (distance < shortestDistance) {
-        shortestDistance = distance;
-        nearestVillage = village;
+      if (!village) {
+        return res.status(404).json({
+          message: "Village not found",
+        });
       }
     }
 
-    res.json({
-      message: "Nearest village detected successfully",
-      village: nearestVillage,
-      distanceKm: Number(shortestDistance.toFixed(2)),
-      userLocation: {
-        latitude: userLatitude,
-        longitude: userLongitude,
-      },
+    const existingVehicle = await Vehicle.findOne({
+      vehicleNumber: vehicleNumber.trim(),
+    });
+
+    if (existingVehicle) {
+      return res.status(409).json({
+        message: "Vehicle number already exists",
+      });
+    }
+
+    const vehicle = await Vehicle.create({
+      vehicleNumber: vehicleNumber.trim(),
+      type,
+      capacity,
+      status: status || "AVAILABLE",
+      villageId: villageId || null,
+      driverId: driverId || null,
+    });
+
+    const populatedVehicle = await Vehicle.findById(vehicle._id)
+      .populate("villageId", "name district state")
+      .populate("driverId", "name email");
+
+    res.status(201).json({
+      message: "Vehicle created successfully",
+      vehicle: populatedVehicle,
     });
   } catch (error) {
-    console.error("Nearest village error:", error);
+    console.error("Create vehicle error:", error);
 
     res.status(500).json({
-      message: "Unable to detect nearest village",
+      message: "Unable to create vehicle",
+      error: error.message,
     });
   }
 });
 
 /*
-  SELECT / UPDATE CITIZEN VILLAGE
+  GET ALL VEHICLES
+  Admin
 */
-router.put("/select", protect, async (req, res) => {
+router.get("/", protect, async (req, res) => {
   try {
-    const { villageId } = req.body;
-
-    if (!villageId) {
-      return res.status(400).json({
-        message: "Village ID is required",
-      });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(villageId)) {
-      return res.status(400).json({
-        message: "Invalid village ID",
-      });
-    }
-
-    const village = await Village.findById(villageId);
-
-    if (!village) {
-      return res.status(404).json({
-        message: "Village not found",
-      });
-    }
-
-    const user = await User.findById(req.user.userId);
-
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
-    }
-
-    if (user.role !== "CITIZEN") {
+    if (req.user.role !== "ADMIN") {
       return res.status(403).json({
-        message: "Only citizens can select a village",
+        message: "Only admins can view vehicles",
       });
     }
 
-    user.villageId = village._id;
-    await user.save();
-
-    const updatedUser = await User.findById(user._id)
+    const vehicles = await Vehicle.find()
       .populate("villageId", "name district state")
-      .select("-password");
+      .populate("driverId", "name email")
+      .sort({ createdAt: -1 });
 
-    res.json({
-      message: "Village selected successfully",
-      user: updatedUser,
-    });
+    res.json(vehicles);
   } catch (error) {
-    console.error("Select village error:", error);
+    console.error("Get vehicles error:", error);
 
     res.status(500).json({
-      message: "Unable to select village",
+      message: "Unable to fetch vehicles",
+    });
+  }
+});
+
+/*
+  GET AVAILABLE VEHICLES
+*/
+router.get("/available", protect, async (req, res) => {
+  try {
+    const { villageId } = req.query;
+
+    const filter = {
+      status: "AVAILABLE",
+    };
+
+    if (villageId) {
+      if (!mongoose.Types.ObjectId.isValid(villageId)) {
+        return res.status(400).json({
+          message: "Invalid village ID",
+        });
+      }
+
+      filter.villageId = villageId;
+    }
+
+    const vehicles = await Vehicle.find(filter)
+      .populate("villageId", "name district state")
+      .populate("driverId", "name email")
+      .sort({ vehicleNumber: 1 });
+
+    res.json(vehicles);
+  } catch (error) {
+    console.error("Get available vehicles error:", error);
+
+    res.status(500).json({
+      message: "Unable to fetch available vehicles",
+    });
+  }
+});
+
+/*
+  GET SINGLE VEHICLE
+*/
+router.get("/:id", protect, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid vehicle ID",
+      });
+    }
+
+    const vehicle = await Vehicle.findById(id)
+      .populate("villageId", "name district state")
+      .populate("driverId", "name email");
+
+    if (!vehicle) {
+      return res.status(404).json({
+        message: "Vehicle not found",
+      });
+    }
+
+    res.json(vehicle);
+  } catch (error) {
+    console.error("Get vehicle error:", error);
+
+    res.status(500).json({
+      message: "Unable to fetch vehicle",
+    });
+  }
+});
+
+/*
+  UPDATE VEHICLE
+*/
+router.put("/:id", protect, async (req, res) => {
+  try {
+    if (req.user.role !== "ADMIN") {
+      return res.status(403).json({
+        message: "Only admins can update vehicles",
+      });
+    }
+
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid vehicle ID",
+      });
+    }
+
+    const {
+      vehicleNumber,
+      type,
+      capacity,
+      status,
+      villageId,
+      driverId,
+    } = req.body;
+
+    if (villageId) {
+      if (!mongoose.Types.ObjectId.isValid(villageId)) {
+        return res.status(400).json({
+          message: "Invalid village ID",
+        });
+      }
+
+      const village = await Village.findById(villageId);
+
+      if (!village) {
+        return res.status(404).json({
+          message: "Village not found",
+        });
+      }
+    }
+
+    if (vehicleNumber) {
+      const duplicate = await Vehicle.findOne({
+        vehicleNumber: vehicleNumber.trim(),
+        _id: { $ne: id },
+      });
+
+      if (duplicate) {
+        return res.status(409).json({
+          message: "Vehicle number already exists",
+        });
+      }
+    }
+
+    const vehicle = await Vehicle.findByIdAndUpdate(
+      id,
+      {
+        ...(vehicleNumber !== undefined && {
+          vehicleNumber: vehicleNumber.trim(),
+        }),
+        ...(type !== undefined && { type }),
+        ...(capacity !== undefined && { capacity }),
+        ...(status !== undefined && { status }),
+        ...(villageId !== undefined && { villageId }),
+        ...(driverId !== undefined && { driverId }),
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    )
+      .populate("villageId", "name district state")
+      .populate("driverId", "name email");
+
+    if (!vehicle) {
+      return res.status(404).json({
+        message: "Vehicle not found",
+      });
+    }
+
+    res.json({
+      message: "Vehicle updated successfully",
+      vehicle,
+    });
+  } catch (error) {
+    console.error("Update vehicle error:", error);
+
+    res.status(500).json({
+      message: "Unable to update vehicle",
+      error: error.message,
+    });
+  }
+});
+
+/*
+  DELETE VEHICLE
+*/
+router.delete("/:id", protect, async (req, res) => {
+  try {
+    if (req.user.role !== "ADMIN") {
+      return res.status(403).json({
+        message: "Only admins can delete vehicles",
+      });
+    }
+
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid vehicle ID",
+      });
+    }
+
+    const vehicle = await Vehicle.findByIdAndDelete(id);
+
+    if (!vehicle) {
+      return res.status(404).json({
+        message: "Vehicle not found",
+      });
+    }
+
+    res.json({
+      message: "Vehicle deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete vehicle error:", error);
+
+    res.status(500).json({
+      message: "Unable to delete vehicle",
     });
   }
 });

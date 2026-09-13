@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -17,6 +18,8 @@ const AdminVehicles = () => {
   const navigate = useNavigate();
 
   const [vehicles, setVehicles] = useState([]);
+  const [villages, setVillages] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
@@ -25,6 +28,7 @@ const AdminVehicles = () => {
     vehicleNumber: "",
     vehicleType: "Garbage Truck",
     capacity: "",
+    villageId: "",
     depotAddress: "",
     depotLatitude: "",
     depotLongitude: "",
@@ -37,7 +41,11 @@ const AdminVehicles = () => {
 
       const response = await api.get("/vehicles");
 
-      setVehicles(response.data.vehicles || []);
+      if (Array.isArray(response.data)) {
+        setVehicles(response.data);
+      } else {
+        setVehicles(response.data.vehicles || []);
+      }
     } catch (error) {
       console.error("Load vehicles error:", error);
 
@@ -50,8 +58,28 @@ const AdminVehicles = () => {
     }
   };
 
+  const loadVillages = async () => {
+    try {
+      const response = await api.get("/villages");
+
+      if (Array.isArray(response.data)) {
+        setVillages(response.data);
+      } else {
+        setVillages(response.data.villages || []);
+      }
+    } catch (error) {
+      console.error("Load villages error:", error);
+
+      alert(
+        error.response?.data?.message ||
+          "Unable to load villages"
+      );
+    }
+  };
+
   useEffect(() => {
     loadVehicles();
+    loadVillages();
   }, []);
 
   const handleChange = (e) => {
@@ -66,6 +94,7 @@ const AdminVehicles = () => {
       vehicleNumber: "",
       vehicleType: "Garbage Truck",
       capacity: "",
+      villageId: "",
       depotAddress: "",
       depotLatitude: "",
       depotLongitude: "",
@@ -79,20 +108,35 @@ const AdminVehicles = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!formData.villageId) {
+      alert("Please select a village");
+      return;
+    }
+
+    if (!formData.capacity) {
+      alert("Please enter vehicle capacity");
+      return;
+    }
+
     try {
       const vehicleData = {
-        vehicleNumber: formData.vehicleNumber,
+        vehicleNumber: formData.vehicleNumber.trim(),
         vehicleType: formData.vehicleType,
         capacity: Number(formData.capacity),
-        depotAddress: formData.depotAddress,
-        depotLatitude: formData.depotLatitude
-          ? Number(formData.depotLatitude)
-          : null,
-        depotLongitude: formData.depotLongitude
-          ? Number(formData.depotLongitude)
-          : null,
+        villageId: formData.villageId,
+        depotAddress: formData.depotAddress.trim(),
+        depotLatitude:
+          formData.depotLatitude !== ""
+            ? Number(formData.depotLatitude)
+            : null,
+        depotLongitude:
+          formData.depotLongitude !== ""
+            ? Number(formData.depotLongitude)
+            : null,
         status: formData.status,
       };
+
+      console.log("Vehicle data being sent:", vehicleData);
 
       if (editingVehicle) {
         await api.put(
@@ -102,7 +146,10 @@ const AdminVehicles = () => {
 
         alert("Vehicle updated successfully");
       } else {
-        await api.post("/vehicles", vehicleData);
+        await api.post(
+          "/vehicles",
+          vehicleData
+        );
 
         alert("Vehicle created successfully");
       }
@@ -127,6 +174,10 @@ const AdminVehicles = () => {
       vehicleType:
         vehicle.vehicleType || "Garbage Truck",
       capacity: vehicle.capacity || "",
+      villageId:
+        vehicle.villageId?._id ||
+        vehicle.villageId ||
+        "",
       depotAddress: vehicle.depotAddress || "",
       depotLatitude:
         vehicle.depotLatitude ?? "",
@@ -146,7 +197,9 @@ const AdminVehicles = () => {
     if (!confirmed) return;
 
     try {
-      await api.delete(`/vehicles/${vehicle._id}`);
+      await api.delete(
+        `/vehicles/${vehicle._id}`
+      );
 
       alert("Vehicle deleted successfully");
 
@@ -169,14 +222,14 @@ const AdminVehicles = () => {
       case "ASSIGNED":
         return "bg-blue-100 text-blue-700";
 
-      case "IN_USE":
+      case "ON_ROUTE":
+        return "bg-purple-100 text-purple-700";
+
+      case "COLLECTING":
         return "bg-yellow-100 text-yellow-700";
 
       case "MAINTENANCE":
         return "bg-orange-100 text-orange-700";
-
-      case "INACTIVE":
-        return "bg-gray-100 text-gray-700";
 
       default:
         return "bg-gray-100 text-gray-700";
@@ -219,6 +272,7 @@ const AdminVehicles = () => {
                 vehicleNumber: "",
                 vehicleType: "Garbage Truck",
                 capacity: "",
+                villageId: "",
                 depotAddress: "",
                 depotLatitude: "",
                 depotLongitude: "",
@@ -258,6 +312,7 @@ const AdminVehicles = () => {
               className="grid grid-cols-1 gap-4 md:grid-cols-2"
             >
 
+              {/* Vehicle Number */}
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Vehicle Number
@@ -274,6 +329,7 @@ const AdminVehicles = () => {
                 />
               </div>
 
+              {/* Vehicle Type */}
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Vehicle Type
@@ -307,6 +363,7 @@ const AdminVehicles = () => {
                 </select>
               </div>
 
+              {/* Capacity */}
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Capacity
@@ -324,6 +381,39 @@ const AdminVehicles = () => {
                 />
               </div>
 
+              {/* Village */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Village
+                </label>
+
+                <select
+                  name="villageId"
+                  value={formData.villageId}
+                  onChange={handleChange}
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 outline-none focus:border-blue-500"
+                >
+                  <option value="">
+                    Select Village
+                  </option>
+
+                  {villages.map((village) => (
+                    <option
+                      key={village._id}
+                      value={village._id}
+                    >
+                      {village.name}
+
+                      {village.district
+                        ? ` - ${village.district}`
+                        : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Depot Address */}
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Depot Address
@@ -339,6 +429,7 @@ const AdminVehicles = () => {
                 />
               </div>
 
+              {/* Status */}
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Status
@@ -354,16 +445,25 @@ const AdminVehicles = () => {
                     AVAILABLE
                   </option>
 
-                  <option value="MAINTENANCE">
-                    MAINTENANCE
+                  <option value="ASSIGNED">
+                    ASSIGNED
                   </option>
 
-                  <option value="INACTIVE">
-                    INACTIVE
+                  <option value="ON_ROUTE">
+                    ON_ROUTE
+                  </option>
+
+                  <option value="COLLECTING">
+                    COLLECTING
+                  </option>
+
+                  <option value="MAINTENANCE">
+                    MAINTENANCE
                   </option>
                 </select>
               </div>
 
+              {/* Depot Latitude */}
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Depot Latitude
@@ -375,11 +475,12 @@ const AdminVehicles = () => {
                   name="depotLatitude"
                   value={formData.depotLatitude}
                   onChange={handleChange}
-                  placeholder="19.5769"
+                  placeholder="19.58211"
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 outline-none focus:border-blue-500"
                 />
               </div>
 
+              {/* Depot Longitude */}
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Depot Longitude
@@ -391,12 +492,14 @@ const AdminVehicles = () => {
                   name="depotLongitude"
                   value={formData.depotLongitude}
                   onChange={handleChange}
-                  placeholder="74.4766"
+                  placeholder="74.47095"
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 outline-none focus:border-blue-500"
                 />
               </div>
 
+              {/* Buttons */}
               <div className="flex gap-3 md:col-span-2">
+
                 <button
                   type="submit"
                   className="rounded-lg bg-blue-600 px-6 py-2.5 font-semibold text-white hover:bg-blue-700"
@@ -413,6 +516,7 @@ const AdminVehicles = () => {
                 >
                   Cancel
                 </button>
+
               </div>
 
             </form>
@@ -422,6 +526,7 @@ const AdminVehicles = () => {
         {/* Summary Cards */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
 
+          {/* Total */}
           <div className="rounded-xl bg-white p-5 shadow">
             <p className="text-sm text-gray-500">
               Total Vehicles
@@ -432,6 +537,7 @@ const AdminVehicles = () => {
             </p>
           </div>
 
+          {/* Available */}
           <div className="rounded-xl bg-white p-5 shadow">
             <p className="text-sm text-gray-500">
               Available
@@ -447,6 +553,7 @@ const AdminVehicles = () => {
             </p>
           </div>
 
+          {/* Assigned */}
           <div className="rounded-xl bg-white p-5 shadow">
             <p className="text-sm text-gray-500">
               Assigned
@@ -456,12 +563,14 @@ const AdminVehicles = () => {
               {
                 vehicles.filter(
                   (vehicle) =>
+                    vehicle.status === "ASSIGNED" ||
                     vehicle.driverId
                 ).length
               }
             </p>
           </div>
 
+          {/* Maintenance */}
           <div className="rounded-xl bg-white p-5 shadow">
             <p className="text-sm text-gray-500">
               Maintenance
@@ -471,8 +580,7 @@ const AdminVehicles = () => {
               {
                 vehicles.filter(
                   (vehicle) =>
-                    vehicle.status ===
-                    "MAINTENANCE"
+                    vehicle.status === "MAINTENANCE"
                 ).length
               }
             </p>
@@ -506,7 +614,22 @@ const AdminVehicles = () => {
               </p>
 
               <button
-                onClick={() => setShowForm(true)}
+                onClick={() => {
+                  setEditingVehicle(null);
+
+                  setFormData({
+                    vehicleNumber: "",
+                    vehicleType: "Garbage Truck",
+                    capacity: "",
+                    villageId: "",
+                    depotAddress: "",
+                    depotLatitude: "",
+                    depotLongitude: "",
+                    status: "AVAILABLE",
+                  });
+
+                  setShowForm(true);
+                }}
                 className="mt-4 rounded-lg bg-blue-600 px-5 py-2 text-white"
               >
                 Add First Vehicle
@@ -523,6 +646,10 @@ const AdminVehicles = () => {
 
                     <th className="px-5 py-4 text-left text-sm font-semibold text-gray-600">
                       Vehicle
+                    </th>
+
+                    <th className="px-5 py-4 text-left text-sm font-semibold text-gray-600">
+                      Village
                     </th>
 
                     <th className="px-5 py-4 text-left text-sm font-semibold text-gray-600">
@@ -556,6 +683,7 @@ const AdminVehicles = () => {
                       className="hover:bg-gray-50"
                     >
 
+                      {/* Vehicle */}
                       <td className="px-5 py-4">
 
                         <div className="flex items-center gap-3">
@@ -586,14 +714,23 @@ const AdminVehicles = () => {
 
                       </td>
 
+                      {/* Village */}
+                      <td className="px-5 py-4 text-gray-700">
+                        {vehicle.villageId?.name ||
+                          "—"}
+                      </td>
+
+                      {/* Type */}
                       <td className="px-5 py-4 text-gray-700">
                         {vehicle.vehicleType || "—"}
                       </td>
 
+                      {/* Capacity */}
                       <td className="px-5 py-4 text-gray-700">
                         {vehicle.capacity}
                       </td>
 
+                      {/* Driver */}
                       <td className="px-5 py-4">
 
                         {vehicle.driverId ? (
@@ -619,6 +756,7 @@ const AdminVehicles = () => {
 
                       </td>
 
+                      {/* Status */}
                       <td className="px-5 py-4">
 
                         <span
@@ -631,6 +769,7 @@ const AdminVehicles = () => {
 
                       </td>
 
+                      {/* Actions */}
                       <td className="px-5 py-4">
 
                         <div className="flex justify-end gap-2">

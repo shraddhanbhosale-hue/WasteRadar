@@ -42,11 +42,10 @@ const userSchema = new mongoose.Schema(
     },
 
     // Google account information
-    googleId: {
+        googleId: {
       type: String,
       unique: true,
       sparse: true,
-      default: null,
     },
 
     profilePicture: {

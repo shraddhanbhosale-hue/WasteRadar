@@ -14,6 +14,8 @@ import {
 
 import api from "../services/api";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL.replace("/api", "");
+
 const STATUS_STEPS = [
   {
     key: "REPORTED",
@@ -328,7 +330,11 @@ const ReportDetails = () => {
           <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="aspect-square bg-slate-100">
               <img
-                src={`http://localhost:5000${report.imageUrl}`}
+                src={
+                  report.imageUrl?.startsWith("http")
+                    ? report.imageUrl
+                    : `${API_BASE_URL}${report.imageUrl}`
+                }
                 alt="Reported waste"
                 className="w-full h-full object-cover"
               />
@@ -618,7 +624,7 @@ const ReportDetails = () => {
                             </div>
                           )}
 
-                          {index <
+                          {index 
                             STATUS_STEPS.length -
                               1 && (
                             <div

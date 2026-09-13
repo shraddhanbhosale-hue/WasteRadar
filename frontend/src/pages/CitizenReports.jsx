@@ -13,6 +13,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL.replace("/api", "");
+
 function CitizenReports() {
   const navigate = useNavigate();
 
@@ -270,7 +272,7 @@ function CitizenReports() {
                         src={
                           report.imageUrl.startsWith("http")
                             ? report.imageUrl
-                            : `http://localhost:5000${report.imageUrl}`
+                            : `${API_BASE_URL}${report.imageUrl}`
                         }
                         alt="Reported waste"
                         className="w-full h-full object-cover"

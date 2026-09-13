@@ -6,8 +6,6 @@ const api = axios.create({
     "https://wasteradar-backend.onrender.com/api",
 });
 
-const driverRoutes = require("./routes/driverRoutes");
-app.use("/api/driver", driverRoutes);
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("wasteradar_token");
 
@@ -19,4 +17,3 @@ api.interceptors.request.use((config) => {
 });
 
 export default api;
-
